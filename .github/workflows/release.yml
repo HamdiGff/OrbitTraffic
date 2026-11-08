@@ -1,0 +1,146 @@
+name: 🚀 Build & Release OrbitTraffic
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. v1.0.1)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: 🪟 Build Windows EXE
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Install Playwright browsers
+        run: playwright install chromium
+
+      - name: Build EXE with PyInstaller
+        run: |
+          pyinstaller --noconfirm --onefile --windowed `
+            --name "OrbitTraffic" `
+            --icon "assets/icon.ico" `
+            --add-data "config;config" `
+            --add-data "assets;assets" `
+            --hidden-import "PyQt6" `
+            --hidden-import "playwright" `
+            --hidden-import "qasync" `
+            main.py
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OrbitTraffic-Windows
+          path: dist/OrbitTraffic.exe
+
+  build-linux:
+    name: 🐧 Build Linux Binary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1 libglib2.0-0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 \
+            libxkbcommon-x11-0 libxcb-shape0 libxcb-cursor0
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Install Playwright browsers
+        run: playwright install chromium
+
+      - name: Build binary
+        run: |
+          pyinstaller --noconfirm --onefile \
+            --name "OrbitTraffic" \
+            --add-data "config:config" \
+            --hidden-import "PyQt6" \
+            --hidden-import "playwright" \
+            --hidden-import "qasync" \
+            main.py
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OrbitTraffic-Linux
+          path: dist/OrbitTraffic
+
+  release:
+    name: 📦 Create GitHub Release
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: OrbitTraffic-Windows
+          path: dist/
+
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: OrbitTraffic-Linux
+          path: dist/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name || github.event.inputs.version }}
+          name: OrbitTraffic ${{ github.ref_name || github.event.inputs.version }}
+          draft: false
+          prerelease: false
+          body: |
+            ## 🚀 OrbitTraffic Release
+
+            ### What's New
+            - Organic traffic generation with AI behavioral simulation
+            - Fingerprint spoofing (Canvas, WebGL, Audio, Navigator)
+            - Async proxy checker with geo-lookup
+            - Keyword-to-traffic flow engine
+            - Dark-themed PyQt6 GUI
+
+            ### Downloads
+            | Platform | File |
+            |----------|------|
+            | Windows  | OrbitTraffic.exe |
+            | Linux    | OrbitTraffic |
+
+            ### Setup
+            ```bash
+            pip install -r requirements.txt
+            playwright install chromium
+            python main.py
+            ```
+          files: |
+            dist/OrbitTraffic.exe
+            dist/OrbitTraffic
