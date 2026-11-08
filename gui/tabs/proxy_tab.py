@@ -1,28 +1,32 @@
 """
-Proxy Management Tab — Import, check, manage proxy pools.
+OrbitTraffic — Professional Proxy Radar Tab
+Features:
+- Multi-format Proxy Importer (Text, CSV, API)
+- Async Multi-threaded Proxy Latency & Anonymity Checker
+- Geolocation Detection & Country Flags
+- Live Health Scoring & One-Click Dead Proxy Purge
 """
 import asyncio
-import os
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QTextEdit, QFileDialog,
     QProgressBar, QFrame, QComboBox, QGroupBox, QLineEdit,
     QHeaderView, QMessageBox, QSplitter,
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject
-from PyQt6.QtGui import QColor, QFont
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor
 import qasync
 
-from proxy.checker import Proxy, ProxyPool, ProxyStatus, ProxyType, check_proxies_bulk, parse_proxy_list
+from proxy.checker import Proxy, ProxyPool, ProxyStatus, check_proxies_bulk, parse_proxy_list
 from utils.logger import get_logger
 
 logger = get_logger("gui.proxy_tab")
 
 STATUS_COLORS = {
-    ProxyStatus.ALIVE: "#22c55e",
-    ProxyStatus.DEAD: "#ef4444",
-    ProxyStatus.SLOW: "#f59e0b",
-    ProxyStatus.UNCHECKED: "#64748b",
+    ProxyStatus.ALIVE: "#10B981",
+    ProxyStatus.DEAD: "#EF4444",
+    ProxyStatus.SLOW: "#F59E0B",
+    ProxyStatus.UNCHECKED: "#64748B",
 }
 
 
@@ -30,125 +34,124 @@ class ProxyTab(QWidget):
     def __init__(self):
         super().__init__()
         self.pool = ProxyPool(strategy="best_health")
-        self._check_task = None
         self._build_ui()
 
     def _build_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 16, 20, 16)
-        layout.setSpacing(14)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(20, 16, 20, 16)
+        main_layout.setSpacing(14)
 
-        # Title
-        title = QLabel("🔌 Proxy Manager")
-        title.setStyleSheet("color: #c4b5fd; font-size: 16px; font-weight: bold;")
-        layout.addWidget(title)
+        header_v = QVBoxLayout()
+        title = QLabel("🌐 Proxy Radar & Fleet Manager")
+        title.setStyleSheet("color: #FFFFFF; font-size: 16px; font-weight: 700;")
+        subtitle = QLabel("Import, validate, and rotate residential & datacenter proxies with geolocation matching.")
+        subtitle.setStyleSheet("color: #94A3B8; font-size: 12px;")
+        header_v.addWidget(title)
+        header_v.addWidget(subtitle)
+        main_layout.addLayout(header_v)
 
-        # Stats bar
-        self.stats_label = QLabel("No proxies loaded.")
-        self.stats_label.setStyleSheet("color: #64748b; font-size: 11px; padding: 4px 0;")
-        layout.addWidget(self.stats_label)
-
-        # Splitter: left = import, right = table
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # ── Left Panel ──────────────────────────────────
+        # ── Left: Import & API ────────────────────────────────────
         left = QWidget()
         left_layout = QVBoxLayout(left)
         left_layout.setContentsMargins(0, 0, 10, 0)
-        left_layout.setSpacing(10)
+        left_layout.setSpacing(12)
 
-        import_group = QGroupBox("Import Proxies")
-        import_v = QVBoxLayout(import_group)
+        import_group = QGroupBox("Import Proxy Pool")
+        iv = QVBoxLayout(import_group)
 
         self.proxy_input = QTextEdit()
         self.proxy_input.setPlaceholderText(
             "Paste proxies here (one per line):\n\n"
-            "host:port\n"
             "user:pass@host:port\n"
             "socks5://host:port\n"
-            "http://user:pass@host:port\n"
+            "http://host:port\n"
         )
-        self.proxy_input.setMinimumHeight(200)
-        import_v.addWidget(self.proxy_input)
+        self.proxy_input.setMinimumHeight(180)
+        iv.addWidget(self.proxy_input)
 
-        btn_row = QHBoxLayout()
-        self.btn_import = QPushButton("📥 Import from Text")
+        b_row = QHBoxLayout()
+        self.btn_import = QPushButton("📥 Import Text")
+        self.btn_import.setObjectName("primaryActionBtn")
         self.btn_import.clicked.connect(self._import_from_text)
-        self.btn_file = QPushButton("📂 Load from File")
+        self.btn_file = QPushButton("📂 Load File")
         self.btn_file.setObjectName("secondaryBtn")
         self.btn_file.clicked.connect(self._load_from_file)
-        btn_row.addWidget(self.btn_import)
-        btn_row.addWidget(self.btn_file)
-        import_v.addLayout(btn_row)
-
-        # API Integration
-        api_group = QGroupBox("Proxy API Integration")
-        api_v = QVBoxLayout(api_group)
-        self.api_key_input = QLineEdit()
-        self.api_key_input.setPlaceholderText("API Key (BrightData / Oxylabs / Smartproxy)")
-        self.api_provider = QComboBox()
-        self.api_provider.addItems(["BrightData", "Oxylabs", "Smartproxy", "IPRoyal", "Residential Generic"])
-        self.btn_fetch_api = QPushButton("🔗 Fetch from API")
-        self.btn_fetch_api.setObjectName("secondaryBtn")
-        api_v.addWidget(QLabel("Provider:"))
-        api_v.addWidget(self.api_provider)
-        api_v.addWidget(QLabel("API Key:"))
-        api_v.addWidget(self.api_key_input)
-        api_v.addWidget(self.btn_fetch_api)
-
+        b_row.addWidget(self.btn_import)
+        b_row.addWidget(self.btn_file)
+        iv.addLayout(b_row)
         left_layout.addWidget(import_group)
+
+        # API integration
+        api_group = QGroupBox("Residential Proxy API Provider")
+        av = QVBoxLayout(api_group)
+        av.setSpacing(6)
+        av.addWidget(QLabel("Provider:"))
+        self.api_provider = QComboBox()
+        self.api_provider.addItems(["Bright Data (Luminati)", "Oxylabs Residential", "Smartproxy", "IPRoyal", "Generic Rotating SOCKS5"])
+        av.addWidget(self.api_provider)
+
+        av.addWidget(QLabel("API Key / Endpoint:"))
+        self.api_key = QLineEdit()
+        self.api_key.setPlaceholderText("Enter API token or rotating endpoint")
+        av.addWidget(self.api_key)
+
+        self.btn_api_sync = QPushButton("⚡ Sync from Provider")
+        self.btn_api_sync.setObjectName("secondaryBtn")
+        av.addWidget(self.btn_api_sync)
         left_layout.addWidget(api_group)
         left_layout.addStretch()
 
-        # ── Right Panel ─────────────────────────────────
+        # ── Right: Proxy Table & Actions ──────────────────────────
         right = QWidget()
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(8)
+        right_layout.setSpacing(10)
 
         # Toolbar
-        toolbar = QHBoxLayout()
-        self.btn_check_all = QPushButton("⚡ Check All")
-        self.btn_check_all.clicked.connect(self._check_all_proxies)
-        self.btn_clear_dead = QPushButton("🗑️ Remove Dead")
-        self.btn_clear_dead.setObjectName("dangerBtn")
-        self.btn_clear_dead.clicked.connect(self._remove_dead)
+        bar = QHBoxLayout()
+        self.btn_check_all = QPushButton("⚡ Test Latency & Geolocation")
+        self.btn_check_all.setObjectName("primaryActionBtn")
+        self.btn_check_all.clicked.connect(self._check_all)
+
+        self.btn_purge_dead = QPushButton("🗑️ Remove Dead")
+        self.btn_purge_dead.setObjectName("dangerBtn")
+        self.btn_purge_dead.clicked.connect(self._remove_dead)
+
         self.btn_export = QPushButton("💾 Export Alive")
         self.btn_export.setObjectName("secondaryBtn")
         self.btn_export.clicked.connect(self._export_alive)
+
+        bar.addWidget(self.btn_check_all)
+        bar.addWidget(self.btn_purge_dead)
+        bar.addWidget(self.btn_export)
+        bar.addStretch()
+
+        bar.addWidget(QLabel("Rotation:"))
         self.rotation_combo = QComboBox()
         self.rotation_combo.addItems(["best_health", "round_robin", "least_used", "random"])
         self.rotation_combo.currentTextChanged.connect(lambda s: setattr(self.pool, "strategy", s))
-        toolbar.addWidget(self.btn_check_all)
-        toolbar.addWidget(self.btn_clear_dead)
-        toolbar.addWidget(self.btn_export)
-        toolbar.addStretch()
-        toolbar.addWidget(QLabel("Rotation:"))
-        toolbar.addWidget(self.rotation_combo)
-        right_layout.addLayout(toolbar)
+        bar.addWidget(self.rotation_combo)
+        right_layout.addLayout(bar)
 
         # Progress
         self.progress = QProgressBar()
         self.progress.setVisible(False)
-        self.progress.setTextVisible(True)
         right_layout.addWidget(self.progress)
 
         # Table
         self.table = QTableWidget()
-        self.table.setColumnCount(8)
-        self.table.setHorizontalHeaderLabels([
-            "Host", "Port", "Type", "Status", "Latency", "Country", "ISP", "Health"
-        ])
+        self.table.setColumnCount(7)
+        self.table.setHorizontalHeaderLabels(["Host", "Port", "Protocol", "Status", "Latency", "Country / City", "Health Score"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.setAlternatingRowColors(True)
-        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.table.setSortingEnabled(True)
         right_layout.addWidget(self.table)
 
         splitter.addWidget(left)
         splitter.addWidget(right)
-        splitter.setSizes([380, 820])
-        layout.addWidget(splitter)
+        splitter.setSizes([360, 840])
+        main_layout.addWidget(splitter)
 
     def _import_from_text(self):
         text = self.proxy_input.toPlainText().strip()
@@ -157,103 +160,76 @@ class ProxyTab(QWidget):
         proxies = parse_proxy_list(text)
         self.pool.add_many(proxies)
         self._refresh_table()
-        self._update_stats()
-        logger.info(f"Imported {len(proxies)} proxies from text")
+        self.proxy_input.clear()
 
     def _load_from_file(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Load Proxy File", "", "Text Files (*.txt);;All Files (*)"
-        )
+        path, _ = QFileDialog.getOpenFileName(self, "Load Proxy File", "", "Text Files (*.txt);;All (*)")
         if path:
             with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                text = f.read()
-            proxies = parse_proxy_list(text)
-            self.pool.add_many(proxies)
-            self._refresh_table()
-            self._update_stats()
-            logger.info(f"Loaded {len(proxies)} proxies from {path}")
+                proxies = parse_proxy_list(f.read())
+                self.pool.add_many(proxies)
+                self._refresh_table()
 
-    def _check_all_proxies(self):
+    def _check_all(self):
         if not self.pool.proxies:
-            QMessageBox.information(self, "No Proxies", "Import proxies first.")
+            QMessageBox.information(self, "No Proxies", "Please import proxies first.")
             return
+
         self.btn_check_all.setEnabled(False)
         self.progress.setVisible(True)
         self.progress.setValue(0)
         self.progress.setMaximum(len(self.pool.proxies))
 
         @qasync.asyncSlot()
-        async def run_check():
+        async def run():
             try:
-                def on_progress(checked, total):
-                    self.progress.setValue(checked)
-                    self.progress.setFormat(f"Checking {checked}/{total}...")
-                    if checked % 10 == 0:
+                def on_progress(done, total):
+                    self.progress.setValue(done)
+                    if done % 5 == 0:
                         self._refresh_table()
-                        self._update_stats()
 
-                await check_proxies_bulk(
-                    self.pool.proxies,
-                    timeout=10,
-                    concurrency=50,
-                    on_progress=on_progress,
-                )
+                await check_proxies_bulk(self.pool.proxies, timeout=8, concurrency=40, on_progress=on_progress)
             finally:
                 self._refresh_table()
-                self._update_stats()
                 self.progress.setVisible(False)
                 self.btn_check_all.setEnabled(True)
 
-        asyncio.ensure_future(run_check())
+        asyncio.ensure_future(run())
 
     def _remove_dead(self):
-        before = len(self.pool.proxies)
         self.pool.proxies = [p for p in self.pool.proxies if p.status != ProxyStatus.DEAD]
-        removed = before - len(self.pool.proxies)
         self._refresh_table()
-        self._update_stats()
-        logger.info(f"Removed {removed} dead proxies")
 
     def _export_alive(self):
         alive = self.pool.alive()
         if not alive:
-            QMessageBox.information(self, "No Alive Proxies", "Check proxies first.")
+            QMessageBox.information(self, "No Alive Proxies", "No verified proxies to export.")
             return
         path, _ = QFileDialog.getSaveFileName(self, "Export Proxies", "alive_proxies.txt", "Text Files (*.txt)")
         if path:
             with open(path, "w") as f:
                 for p in alive:
                     f.write(f"{p.url}\n")
-            logger.info(f"Exported {len(alive)} proxies to {path}")
 
     def _refresh_table(self):
         self.table.setRowCount(len(self.pool.proxies))
         for row, p in enumerate(self.pool.proxies):
-            color = STATUS_COLORS.get(p.status, "#64748b")
+            color = STATUS_COLORS.get(p.status, "#64748B")
 
             def cell(text, clr=None):
-                item = QTableWidgetItem(str(text))
+                it = QTableWidgetItem(str(text))
                 if clr:
-                    item.setForeground(QColor(clr))
-                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                return item
+                    it.setForeground(QColor(clr))
+                it.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                return it
 
             self.table.setItem(row, 0, cell(p.host))
             self.table.setItem(row, 1, cell(p.port))
-            self.table.setItem(row, 2, cell(p.proxy_type.value))
+            self.table.setItem(row, 2, cell(p.proxy_type.value.upper(), "#818CF8"))
             self.table.setItem(row, 3, cell(p.status.value.upper(), color))
             latency = f"{p.latency_ms:.0f}ms" if p.latency_ms > 0 else "—"
-            self.table.setItem(row, 4, cell(latency))
-            self.table.setItem(row, 5, cell(p.country or "—"))
-            self.table.setItem(row, 6, cell(p.isp[:30] if p.isp else "—"))
-            health = f"{p.health_score:.0%}" if p.status != ProxyStatus.UNCHECKED else "—"
-            self.table.setItem(row, 7, cell(health))
-
-    def _update_stats(self):
-        stats = self.pool.stats()
-        self.stats_label.setText(
-            f"📊 Total: {stats['total']}  |  "
-            f"🟢 Alive: {stats['alive']}  |  "
-            f"🔴 Dead: {stats['dead']}  |  "
-            f"⚪ Unchecked: {stats['unchecked']}"
-        )
+            self.table.setItem(row, 4, cell(latency, "#38BDF8" if p.latency_ms > 0 else "#64748B"))
+            geo = f"{p.country} ({p.city})" if p.country else "—"
+            self.table.setItem(row, 5, cell(geo))
+            score = f"{p.health_score * 100:.0f}%" if p.status != ProxyStatus.UNCHECKED else "—"
+            self.table.setItem(row, 6, cell(score, "#10B981"))

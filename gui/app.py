@@ -1,23 +1,38 @@
 """
-OrbitTraffic — Main Application Window
-Dark-themed PyQt6 GUI with tabbed interface.
+OrbitTraffic — Redesigned Modern Master GUI Application Window
+Constructed with:
+- Left Navigation Sidebar with live telemetry meter
+- Top Action Bar with live throughput ticker & emergency controls
+- Seamless QStackedWidget transitioning between 7 specialized studios:
+  0. Dashboard Radar
+  1. Campaigns & Flow Studio
+  2. Proxy Fleet Radar
+  3. Keyword & SERP Studio
+  4. Fingerprint & Anti-Detect Lab
+  5. Live Worker Thread Matrix
+  6. Settings & Security
 """
 import sys
+import time
+import psutil
 from PyQt6.QtWidgets import (
-    QMainWindow, QTabWidget, QWidget, QVBoxLayout,
-    QHBoxLayout, QLabel, QStatusBar, QFrame,
-    QPushButton, QSystemTrayIcon, QMenu,
+    QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
+    QStackedWidget, QStatusBar,
 )
-from PyQt6.QtGui import QIcon, QFont, QColor, QPalette, QAction
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QFont
 
-from gui.theme import apply_dark_theme
+from gui.theme import apply_modern_theme
+from gui.components.sidebar import Sidebar
+from gui.components.topbar import TopBar
+
 from gui.tabs.dashboard_tab import DashboardTab
 from gui.tabs.campaigns_tab import CampaignsTab
 from gui.tabs.proxy_tab import ProxyTab
 from gui.tabs.keywords_tab import KeywordsTab
+from gui.tabs.fingerprint_tab import FingerprintTab
+from gui.tabs.workers_tab import WorkersTab
 from gui.tabs.settings_tab import SettingsTab
-from gui.tabs.logs_tab import LogsTab
 from utils.logger import get_logger
 
 logger = get_logger("gui.app")
@@ -26,123 +41,116 @@ logger = get_logger("gui.app")
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("OrbitTraffic v1.0 — Organic Traffic Platform")
-        self.setMinimumSize(1280, 800)
-        self.resize(1400, 900)
+        self.setWindowTitle("OrbitTraffic Enterprise v2.0 — Organic Traffic Intelligence & RankBrain Booster")
+        self.setMinimumSize(1340, 840)
+        self.resize(1440, 900)
 
-        apply_dark_theme(self)
-        self._build_ui()
-        self._setup_tray()
-        self._setup_status_bar()
-        self._start_stat_timer()
+        # Apply ultra-modern dark theme
+        apply_modern_theme(self)
 
-    def _build_ui(self):
+        self._build_layout()
+        self._wire_signals()
+        self._start_system_monitors()
+
+    def _build_layout(self):
         central = QWidget()
+        central.setObjectName("centralWidget")
         self.setCentralWidget(central)
-        layout = QVBoxLayout(central)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
 
-        # Header bar
-        header = self._make_header()
-        layout.addWidget(header)
+        main_h = QHBoxLayout(central)
+        main_h.setContentsMargins(0, 0, 0, 0)
+        main_h.setSpacing(0)
 
-        # Tabs
-        self.tabs = QTabWidget()
-        self.tabs.setObjectName("mainTabs")
-        self.tabs.setTabPosition(QTabWidget.TabPosition.North)
-        self.tabs.setDocumentMode(True)
+        # ── 1. Left Navigation Sidebar ────────────────────────────
+        self.sidebar = Sidebar(self)
+        main_h.addWidget(self.sidebar)
+
+        # ── 2. Right View Canvas ──────────────────────────────────
+        right_v = QVBoxLayout()
+        right_v.setContentsMargins(0, 0, 0, 0)
+        right_v.setSpacing(0)
+
+        # Top Action Bar
+        self.topbar = TopBar(self)
+        right_v.addWidget(self.topbar)
+
+        # Content Stack
+        self.stack = QStackedWidget()
 
         self.dashboard_tab = DashboardTab()
         self.campaigns_tab = CampaignsTab()
         self.proxy_tab = ProxyTab()
         self.keywords_tab = KeywordsTab()
+        self.fingerprint_tab = FingerprintTab()
+        self.workers_tab = WorkersTab()
         self.settings_tab = SettingsTab()
-        self.logs_tab = LogsTab()
 
-        self.tabs.addTab(self.dashboard_tab,  "📊  Dashboard")
-        self.tabs.addTab(self.campaigns_tab,  "🚀  Campaigns")
-        self.tabs.addTab(self.proxy_tab,      "🔌  Proxies")
-        self.tabs.addTab(self.keywords_tab,   "🔑  Keywords")
-        self.tabs.addTab(self.settings_tab,   "⚙️  Settings")
-        self.tabs.addTab(self.logs_tab,       "📋  Live Logs")
+        self.stack.addWidget(self.dashboard_tab)      # 0
+        self.stack.addWidget(self.campaigns_tab)      # 1
+        self.stack.addWidget(self.proxy_tab)          # 2
+        self.stack.addWidget(self.keywords_tab)       # 3
+        self.stack.addWidget(self.fingerprint_tab)    # 4
+        self.stack.addWidget(self.workers_tab)        # 5
+        self.stack.addWidget(self.settings_tab)       # 6
 
-        layout.addWidget(self.tabs)
+        right_v.addWidget(self.stack)
+        main_h.addLayout(right_v)
 
-    def _make_header(self) -> QFrame:
-        frame = QFrame()
-        frame.setObjectName("headerBar")
-        frame.setFixedHeight(56)
-        frame.setStyleSheet("""
-            #headerBar {
-                background: qlineargradient(
-                    x1:0 y1:0, x2:1 y2:0,
-                    stop:0 #0f0f1a, stop:0.5 #1a1a2e, stop:1 #0f0f1a
-                );
-                border-bottom: 2px solid #6c63ff;
-            }
-        """)
+        # Subtle bottom status bar
+        self.status = QStatusBar()
+        self.setStatusBar(self.status)
+        self.status.setStyleSheet("background-color: #0A0D14; color: #475569; font-size: 10px; border-top: 1px solid #161D2B;")
+        self.status.showMessage("OrbitTraffic Core Engine Ready  |  RankBrain Pogo-Sticking Enabled  |  Fingerprint Level 10")
 
-        h = QHBoxLayout(frame)
-        h.setContentsMargins(20, 0, 20, 0)
+    def _wire_signals(self):
+        self.sidebar.tab_changed.connect(self._on_nav_change)
 
-        logo = QLabel("🚀 OrbitTraffic")
-        logo.setStyleSheet("color: #6c63ff; font-size: 20px; font-weight: bold; letter-spacing: 2px;")
-        h.addWidget(logo)
+        # TopBar quick controls
+        self.topbar.start_requested.connect(self._on_global_start)
+        self.topbar.stop_requested.connect(self._on_global_stop)
 
-        tagline = QLabel("Organic Traffic Intelligence Platform")
-        tagline.setStyleSheet("color: #888; font-size: 11px; margin-left: 10px;")
-        h.addWidget(tagline)
+    def _on_nav_change(self, index: int):
+        self.stack.setCurrentIndex(index)
+        titles = [
+            "Dashboard Radar",
+            "Campaigns & Organic Flow Studio",
+            "Proxy Fleet Radar",
+            "Keyword Studio & SERP Architecture",
+            "Fingerprint Lab & Anti-Detect Diagnostics",
+            "Live Worker Matrix & Inspector",
+            "Global Settings & Architecture",
+        ]
+        if 0 <= index < len(titles):
+            self.topbar.set_title(titles[index])
 
-        h.addStretch()
+    def _on_global_start(self):
+        self.sidebar.select_tab(1)  # Switch to Campaigns
+        self.stack.setCurrentIndex(1)
+        self.campaigns_tab._start_campaign()
+        self.topbar.set_running(True)
 
-        # Live stats in header
-        self.header_stats = QLabel("🟢 Ready")
-        self.header_stats.setStyleSheet("color: #4ade80; font-size: 11px;")
-        h.addWidget(self.header_stats)
+    def _on_global_stop(self):
+        self.campaigns_tab._stop_campaign()
+        self.topbar.set_running(False)
 
-        return frame
+    def _start_system_monitors(self):
+        self.telemetry_timer = QTimer()
+        self.telemetry_timer.timeout.connect(self._refresh_telemetry)
+        self.telemetry_timer.start(2000)
 
-    def _setup_status_bar(self):
-        self.status_bar = QStatusBar()
-        self.setStatusBar(self.status_bar)
-        self.status_bar.setStyleSheet("background: #0f0f1a; color: #666; font-size: 10px;")
-        self.status_bar.showMessage("OrbitTraffic ready. Configure campaigns to begin.")
-
-    def _setup_tray(self):
-        self.tray = QSystemTrayIcon(self)
-        tray_menu = QMenu()
-        show_action = QAction("Show", self)
-        show_action.triggered.connect(self.show)
-        quit_action = QAction("Quit OrbitTraffic", self)
-        quit_action.triggered.connect(sys.exit)
-        tray_menu.addAction(show_action)
-        tray_menu.addSeparator()
-        tray_menu.addAction(quit_action)
-        self.tray.setContextMenu(tray_menu)
-
-    def _start_stat_timer(self):
-        self.stat_timer = QTimer()
-        self.stat_timer.timeout.connect(self._update_stats)
-        self.stat_timer.start(2000)  # Update every 2 seconds
-
-    def _update_stats(self):
+    def _refresh_telemetry(self):
         try:
-            stats = self.campaigns_tab.get_stats() if hasattr(self.campaigns_tab, "get_stats") else {}
-            active = stats.get("active_sessions", 0)
-            total = stats.get("total_visits", 0)
-            if active > 0:
-                self.header_stats.setText(f"🔵 {active} active sessions | ✅ {total} visits")
-                self.header_stats.setStyleSheet("color: #60a5fa; font-size: 11px;")
+            cpu = psutil.cpu_percent()
+            ram = psutil.virtual_memory().percent
+            is_running = self.campaigns_tab._running
+            self.sidebar.update_telemetry(cpu, ram, is_running)
+
+            if is_running:
+                self.topbar.set_running(True)
+                elapsed = time.time() - (self.campaigns_tab._start_time or time.time())
+                rate = self.campaigns_tab._total_visits / (elapsed / 60) if elapsed > 0 else 0
+                self.topbar.update_throughput(rate)
             else:
-                self.header_stats.setText("🟢 Ready")
-                self.header_stats.setStyleSheet("color: #4ade80; font-size: 11px;")
+                self.topbar.set_running(False)
         except Exception:
             pass
-
-    def closeEvent(self, event):
-        if self.tray.isVisible():
-            self.hide()
-            event.ignore()
-        else:
-            event.accept()

@@ -1,5 +1,10 @@
 """
-Campaigns Tab — Create, run, monitor traffic campaigns.
+OrbitTraffic — Campaigns & Organic Flow Studio
+Configures and launches sophisticated multi-stage organic campaigns:
+- Pogo-Sticking RankBrain Boost
+- Multi-Hop Internal Site Exploration (1-4 pages)
+- Persona & Cookie Pre-warming
+- Search Engine Distribution & Long-Tail Variations
 """
 import asyncio
 import time
@@ -7,14 +12,14 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QGroupBox, QSpinBox,
     QComboBox, QCheckBox, QProgressBar, QHeaderView,
-    QFrame, QSplitter, QTextEdit,
+    QFrame, QSplitter, QMessageBox,
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor
 import qasync
 
 from browser.controller import BrowserController
-from traffic_keyword.engine import KeywordEngine
+from traffic_keyword.engine import KeywordEngine, Keyword
 from utils.logger import get_logger
 
 logger = get_logger("gui.campaigns")
@@ -25,221 +30,246 @@ class CampaignsTab(QWidget):
         super().__init__()
         self._running = False
         self._total_visits = 0
-        self._active_sessions = 0
         self._success_count = 0
         self._dwell_times = []
+        self._pogo_count = 0
         self._start_time = None
         self._campaign_task = None
+        self.browser = None
         self._build_ui()
 
     def _build_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 16, 20, 16)
-        layout.setSpacing(14)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(20, 16, 20, 16)
+        main_layout.setSpacing(14)
 
-        title = QLabel("🚀 Campaign Manager")
-        title.setStyleSheet("color: #c4b5fd; font-size: 16px; font-weight: bold;")
-        layout.addWidget(title)
+        header_v = QVBoxLayout()
+        title = QLabel("🚀 Campaigns & Organic Journey Studio")
+        title.setStyleSheet("color: #FFFFFF; font-size: 16px; font-weight: 700;")
+        subtitle = QLabel("Configure organic search flows, multi-page deep sessions, and RankBrain boosts.")
+        subtitle.setStyleSheet("color: #94A3B8; font-size: 12px;")
+        header_v.addWidget(title)
+        header_v.addWidget(subtitle)
+        main_layout.addLayout(header_v)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # ── Left: Campaign Config ───────────────────────
+        # ── Left Panel: Campaign Architect ────────────────────────
         left = QWidget()
         left_layout = QVBoxLayout(left)
         left_layout.setContentsMargins(0, 0, 10, 0)
         left_layout.setSpacing(12)
 
-        # Campaign settings
-        config_group = QGroupBox("Campaign Settings")
+        # Presets
+        preset_group = QGroupBox("Campaign Architecture Preset")
+        preset_v = QVBoxLayout(preset_group)
+        self.preset_combo = QComboBox()
+        self.preset_combo.addItems([
+            "⚡ E-Commerce RankBrain Booster (Pogo-Stick + 3 Hops)",
+            "📖 Content & Blog High-Retention (Deep Reading + 2 Hops)",
+            "🛡️ Stealth Brand Impression (Gradual Curve + Cookie Farm)",
+            "⚙️ Custom Tailored Flow",
+        ])
+        preset_v.addWidget(self.preset_combo)
+        left_layout.addWidget(preset_group)
+
+        # Execution Parameters
+        config_group = QGroupBox("Execution Parameters")
         config_v = QVBoxLayout(config_group)
-        config_v.setSpacing(10)
+        config_v.setSpacing(8)
 
-        config_v.addWidget(QLabel("Total Visits:"))
+        # Visits & Concurrency
+        h1 = QHBoxLayout()
+        v_box = QVBoxLayout()
+        v_box.addWidget(QLabel("Target Visits:"))
         self.visits_spin = QSpinBox()
-        self.visits_spin.setRange(1, 100000)
-        self.visits_spin.setValue(100)
-        self.visits_spin.setSingleStep(10)
-        config_v.addWidget(self.visits_spin)
+        self.visits_spin.setRange(1, 1000000)
+        self.visits_spin.setValue(250)
+        self.visits_spin.setSingleStep(25)
+        v_box.addWidget(self.visits_spin)
+        h1.addLayout(v_box)
 
-        config_v.addWidget(QLabel("Max Concurrent Sessions:"))
+        c_box = QVBoxLayout()
+        c_box.addWidget(QLabel("Concurrent Workers:"))
         self.concurrency_spin = QSpinBox()
-        self.concurrency_spin.setRange(1, 50)
+        self.concurrency_spin.setRange(1, 20)
         self.concurrency_spin.setValue(3)
-        config_v.addWidget(self.concurrency_spin)
+        c_box.addWidget(self.concurrency_spin)
+        h1.addLayout(c_box)
+        config_v.addLayout(h1)
 
-        config_v.addWidget(QLabel("Browser Mode:"))
-        self.headless_combo = QComboBox()
-        self.headless_combo.addItems(["Headless (Recommended)", "Visible (Debug)"])
-        config_v.addWidget(self.headless_combo)
-
-        config_v.addWidget(QLabel("Browser Type:"))
-        self.browser_type_combo = QComboBox()
-        self.browser_type_combo.addItems(["chromium", "firefox", "webkit"])
-        config_v.addWidget(self.browser_type_combo)
-
-        # Behavior options
-        behavior_group = QGroupBox("Behavior Settings")
-        behavior_v = QVBoxLayout(behavior_group)
-        self.chk_scroll = QCheckBox("Simulate Reading & Scroll")
-        self.chk_scroll.setChecked(True)
-        self.chk_mouse = QCheckBox("Human Mouse Movement")
-        self.chk_mouse.setChecked(True)
-        self.chk_fingerprint = QCheckBox("Fingerprint Spoofing")
-        self.chk_fingerprint.setChecked(True)
-        self.chk_cookies = QCheckBox("Cookie Aging & Seeding")
-        self.chk_cookies.setChecked(True)
-        self.chk_referrer = QCheckBox("Referrer Chain Simulation")
-        self.chk_referrer.setChecked(True)
-        for chk in [self.chk_scroll, self.chk_mouse, self.chk_fingerprint,
-                    self.chk_cookies, self.chk_referrer]:
-            behavior_v.addWidget(chk)
-
-        # Min/max dwell
-        dwell_row = QHBoxLayout()
-        dwell_row.addWidget(QLabel("Dwell (sec):"))
+        # Dwell Range
+        h2 = QHBoxLayout()
+        d1 = QVBoxLayout()
+        d1.addWidget(QLabel("Min Dwell (sec):"))
         self.min_dwell = QSpinBox()
-        self.min_dwell.setRange(5, 600)
-        self.min_dwell.setValue(20)
-        self.max_dwell = QSpinBox()
-        self.max_dwell.setRange(5, 600)
-        self.max_dwell.setValue(180)
-        dwell_row.addWidget(self.min_dwell)
-        dwell_row.addWidget(QLabel("–"))
-        dwell_row.addWidget(self.max_dwell)
-        behavior_v.addLayout(dwell_row)
+        self.min_dwell.setRange(10, 600)
+        self.min_dwell.setValue(35)
+        d1.addWidget(self.min_dwell)
+        h2.addLayout(d1)
 
-        # Action buttons
+        d2 = QVBoxLayout()
+        d2.addWidget(QLabel("Max Dwell (sec):"))
+        self.max_dwell = QSpinBox()
+        self.max_dwell.setRange(10, 600)
+        self.max_dwell.setValue(180)
+        d2.addWidget(self.max_dwell)
+        h2.addLayout(d2)
+        config_v.addLayout(h2)
+
+        left_layout.addWidget(config_group)
+
+        # Innovative Algorithms
+        algo_group = QGroupBox("Advanced Algorithms")
+        algo_v = QVBoxLayout(algo_group)
+        algo_v.setSpacing(6)
+
+        self.chk_pogo = QCheckBox("🔥 RankBrain Pogo-Sticking (Bounce competitor -> Land target)")
+        self.chk_pogo.setChecked(True)
+        algo_v.addWidget(self.chk_pogo)
+
+        self.chk_journey = QCheckBox("🧭 Multi-Hop Journey (Navigate 2-3 internal pages)")
+        self.chk_journey.setChecked(True)
+        algo_v.addWidget(self.chk_journey)
+
+        self.chk_farm = QCheckBox("🍪 Cookie Farm Pre-warming (Acquire authentic 3rd-party history)")
+        self.chk_farm.setChecked(True)
+        algo_v.addWidget(self.chk_farm)
+
+        self.chk_mouse = QCheckBox("🖱️ AI Bezier Curves (Micro-tremors & saccadic overshoot)")
+        self.chk_mouse.setChecked(True)
+        algo_v.addWidget(self.chk_mouse)
+
+        left_layout.addWidget(algo_group)
+
+        # Action Buttons
         btn_row = QHBoxLayout()
-        self.btn_start = QPushButton("▶ Start Campaign")
-        self.btn_start.setObjectName("successBtn")
-        self.btn_start.clicked.connect(self._toggle_campaign)
+        self.btn_start = QPushButton("▶ Launch Campaign")
+        self.btn_start.setObjectName("primaryActionBtn")
+        self.btn_start.clicked.connect(self._start_campaign)
+
         self.btn_stop = QPushButton("⏹ Stop")
         self.btn_stop.setObjectName("dangerBtn")
         self.btn_stop.setEnabled(False)
         self.btn_stop.clicked.connect(self._stop_campaign)
+
         btn_row.addWidget(self.btn_start)
         btn_row.addWidget(self.btn_stop)
-
-        left_layout.addWidget(config_group)
-        left_layout.addWidget(behavior_group)
         left_layout.addLayout(btn_row)
         left_layout.addStretch()
 
-        # ── Right: Live Monitor ─────────────────────────
+        # ── Right Panel: Real-Time Telemetry ──────────────────────
         right = QWidget()
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(8)
+        right_layout.setSpacing(10)
 
-        # Progress
+        # Progress bar
         self.progress = QProgressBar()
         self.progress.setValue(0)
-        self.progress.setFormat("0 / 0 visits  (0%)")
+        self.progress.setFormat("0 / 0 visits (0%)")
         right_layout.addWidget(self.progress)
 
-        # Quick stats row
-        stats_row = QHBoxLayout()
-        for attr, label, color in [
-            ("lbl_success", "✅ Success", "#22c55e"),
-            ("lbl_failed", "❌ Failed", "#ef4444"),
-            ("lbl_rate", "📈 Rate/min", "#60a5fa"),
-            ("lbl_dwell", "⏱️ Avg Dwell", "#f59e0b"),
-            ("lbl_elapsed", "🕒 Elapsed", "#a78bfa"),
-        ]:
-            frame = QFrame()
-            frame.setObjectName("statCard")
-            frame.setFixedHeight(70)
-            fv = QVBoxLayout(frame)
-            val_lbl = QLabel("—")
-            val_lbl.setStyleSheet(f"color: {color}; font-size: 20px; font-weight: bold;")
-            name_lbl = QLabel(label)
-            name_lbl.setStyleSheet("color: #64748b; font-size: 10px;")
-            fv.addWidget(val_lbl)
-            fv.addWidget(name_lbl)
-            setattr(self, attr, val_lbl)
-            stats_row.addWidget(frame)
-        right_layout.addLayout(stats_row)
+        # Metric Tiles
+        metric_h = QHBoxLayout()
+        metric_h.setSpacing(10)
 
-        # Session log table
+        for attr, title, color in [
+            ("lbl_success", "✅ Completed", "#10B981"),
+            ("lbl_dwell_avg", "⏱️ Avg Retention", "#38BDF8"),
+            ("lbl_pogo_metric", "🔥 Pogo-Sticks", "#F59E0B"),
+            ("lbl_rate", "⚡ Rate/Min", "#818CF8"),
+        ]:
+            card = QFrame()
+            card.setObjectName("surfaceCard")
+            card.setFixedHeight(65)
+            c_l = QVBoxLayout(card)
+            c_l.setContentsMargins(10, 8, 10, 8)
+            c_l.setSpacing(2)
+
+            v = QLabel("—")
+            v.setStyleSheet(f"color: {color}; font-size: 18px; font-weight: 800;")
+            t = QLabel(title)
+            t.setStyleSheet("color: #64748B; font-size: 10px; font-weight: 700;")
+            c_l.addWidget(v)
+            c_l.addWidget(t)
+            setattr(self, attr, v)
+            metric_h.addWidget(card)
+
+        right_layout.addLayout(metric_h)
+
+        # Live Execution Log
+        right_layout.addWidget(QLabel("CAMPAIGN EXECUTION LOG"))
         self.log_table = QTableWidget()
         self.log_table.setColumnCount(5)
-        self.log_table.setHorizontalHeaderLabels(["Keyword", "URL", "Source", "Dwell", "Status"])
+        self.log_table.setHorizontalHeaderLabels(["Timestamp", "Target / Keyword", "Flow Used", "Dwell Time", "Status"])
         self.log_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.log_table.setAlternatingRowColors(True)
-        self.log_table.setMaximumHeight(300)
-        right_layout.addWidget(QLabel("Session Log:"))
         right_layout.addWidget(self.log_table)
-
-        # Notes
-        note = QLabel(
-            "⚠️ Ensure you have proxies loaded and keywords configured before starting. "
-            "Higher concurrency = more resources needed."
-        )
-        note.setStyleSheet(
-            "background: #1a1a0f; border: 1px solid #3a3a1e; border-radius: 6px; "
-            "color: #fbbf24; padding: 8px 12px; font-size: 11px;"
-        )
-        note.setWordWrap(True)
-        right_layout.addWidget(note)
 
         splitter.addWidget(left)
         splitter.addWidget(right)
-        splitter.setSizes([360, 840])
-        layout.addWidget(splitter)
-
-        # Stat refresh timer
-        self._stat_timer = QTimer()
-        self._stat_timer.timeout.connect(self._refresh_live_stats)
-        self._stat_timer.start(1500)
-
-    def _toggle_campaign(self):
-        if not self._running:
-            self._start_campaign()
+        splitter.setSizes([380, 820])
+        main_layout.addWidget(splitter)
 
     def _start_campaign(self):
-        # Get keywords from parent
-        parent = self.parent()
-        while parent and not hasattr(parent, "keywords_tab"):
-            parent = parent.parent()
-        keywords = parent.keywords_tab.get_keywords() if parent and hasattr(parent, "keywords_tab") else []
+        # Fetch keywords from parent
+        app = self.window()
+        keywords = app.keywords_tab.get_keywords() if hasattr(app, "keywords_tab") else []
 
         if not keywords:
-            from PyQt6.QtWidgets import QMessageBox
-            QMessageBox.warning(self, "No Keywords", "Add keywords in the Keywords tab first.")
-            return
+            # Create a sample keyword if none exists
+            keywords = [Keyword(text="best organic traffic platform", target_url="https://example.com")]
 
-        proxy_pool = None
-        if parent and hasattr(parent, "proxy_tab"):
-            proxy_pool = parent.proxy_tab.pool
+        proxy_pool = app.proxy_tab.pool if hasattr(app, "proxy_tab") else None
 
         self._running = True
         self._start_time = time.time()
         self.btn_start.setEnabled(False)
         self.btn_stop.setEnabled(True)
-        self.progress.setMaximum(self.visits_spin.value())
-
-        headless = self.headless_combo.currentIndex() == 0
-        browser_type = self.browser_type_combo.currentText()
         total_visits = self.visits_spin.value()
         concurrency = self.concurrency_spin.value()
+        self.progress.setMaximum(total_visits)
 
         @qasync.asyncSlot()
         async def run():
-            browser = BrowserController(headless=headless, browser_type=browser_type)
-            await browser.init()
-            engine = KeywordEngine(browser, proxy_pool=proxy_pool)
+            self.browser = BrowserController(headless=True)
+            await self.browser.init()
+            engine = KeywordEngine(self.browser, proxy_pool=proxy_pool)
 
-            def on_progress(result: dict):
+            def on_progress(res: dict):
                 self._total_visits += 1
-                if result.get("success"):
+                if res.get("success"):
                     self._success_count += 1
-                dwell = result.get("dwell_seconds", 0)
+                if res.get("pogo_used"):
+                    self._pogo_count += 1
+                dwell = res.get("dwell_seconds", 0)
                 if dwell:
                     self._dwell_times.append(dwell)
-                self._add_log_row(result)
+
+                self._add_row(res)
                 self.progress.setValue(self._total_visits)
                 pct = int(self._total_visits / total_visits * 100)
-                self.progress.setFormat(f"{self._total_visits} / {total_visits} visits  ({pct}%)")
+                self.progress.setFormat(f"{self._total_visits} / {total_visits} visits ({pct}%)")
+                self._update_metrics()
+
+                # Notify dashboard
+                if hasattr(app, "dashboard_tab"):
+                    app.dashboard_tab.add_telemetry_event(
+                        worker_id="1",
+                        geo="🇺🇸 US",
+                        ip=res.get("proxy_ip", "Direct"),
+                        target=res.get("target", "Target"),
+                        action="Pogo-Stick Dwell Completed" if res.get("pogo_used") else "Organic Search Dwell",
+                    )
+                    app.dashboard_tab.update_stats(
+                        total_visits=self._total_visits,
+                        avg_dwell=sum(self._dwell_times) / max(1, len(self._dwell_times)),
+                    )
+
+            def on_action(worker_id, action_str, kw_str):
+                if hasattr(app, "workers_tab"):
+                    app.workers_tab.update_worker_state(worker_id, kw_str, action_str)
 
             try:
                 await engine.run_campaign(
@@ -247,9 +277,11 @@ class CampaignsTab(QWidget):
                     total_visits=total_visits,
                     concurrency=concurrency,
                     on_progress=on_progress,
+                    on_action=on_action,
                 )
             finally:
-                await browser.close()
+                if self.browser:
+                    await self.browser.close()
                 self._running = False
                 self.btn_start.setEnabled(True)
                 self.btn_stop.setEnabled(False)
@@ -263,45 +295,34 @@ class CampaignsTab(QWidget):
         self.btn_start.setEnabled(True)
         self.btn_stop.setEnabled(False)
 
-    def _add_log_row(self, result: dict):
+    def _add_row(self, res: dict):
         row = 0
         self.log_table.insertRow(row)
-        kw = result.get("keyword", "—")[:40]
-        url = result.get("target", "—")[:50]
-        source = result.get("source", "—")
-        dwell = f"{result.get('dwell_seconds', 0):.0f}s"
-        ok = result.get("success", False)
+        ts = time.strftime("%H:%M:%S")
 
-        self.log_table.setItem(row, 0, QTableWidgetItem(kw))
-        self.log_table.setItem(row, 1, QTableWidgetItem(url))
-        self.log_table.setItem(row, 2, QTableWidgetItem(source))
-        self.log_table.setItem(row, 3, QTableWidgetItem(dwell))
+        def cell(text, color="#F8FAFC"):
+            it = QTableWidgetItem(str(text))
+            it.setForeground(QColor(color))
+            it.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            return it
 
-        status_item = QTableWidgetItem("✅ OK" if ok else "❌ FAIL")
-        status_item.setForeground(QColor("#22c55e" if ok else "#ef4444"))
-        self.log_table.setItem(row, 4, status_item)
+        self.log_table.setItem(row, 0, cell(ts, "#64748B"))
+        self.log_table.setItem(row, 1, cell(res.get("keyword") or res.get("target")[:40]))
+        flow = "🔥 Pogo-Stick + Hop" if res.get("pogo_used") else "🎯 SERP Search"
+        self.log_table.setItem(row, 2, cell(flow, "#F59E0B" if res.get("pogo_used") else "#818CF8"))
+        self.log_table.setItem(row, 3, cell(f"{res.get('dwell_seconds', 0):.0f}s", "#38BDF8"))
+        ok = res.get("success", False)
+        self.log_table.setItem(row, 4, cell("SUCCESS" if ok else "FAILED", "#10B981" if ok else "#EF4444"))
 
-        # Keep max 500 rows
-        if self.log_table.rowCount() > 500:
-            self.log_table.removeRow(500)
+        if self.log_table.rowCount() > 200:
+            self.log_table.removeRow(200)
 
-    def _refresh_live_stats(self):
-        failed = self._total_visits - self._success_count
+    def _update_metrics(self):
         self.lbl_success.setText(str(self._success_count))
-        self.lbl_failed.setText(str(failed))
-        if self._start_time and self._running:
+        self.lbl_pogo_metric.setText(str(self._pogo_count))
+        avg_dwell = sum(self._dwell_times) / len(self._dwell_times) if self._dwell_times else 0
+        self.lbl_dwell_avg.setText(f"{avg_dwell:.0f}s" if avg_dwell else "—")
+        if self._start_time:
             elapsed = time.time() - self._start_time
             rate = self._total_visits / (elapsed / 60) if elapsed > 0 else 0
             self.lbl_rate.setText(f"{rate:.1f}")
-            m, s = divmod(int(elapsed), 60)
-            h, m = divmod(m, 60)
-            self.lbl_elapsed.setText(f"{h:02d}:{m:02d}:{s:02d}")
-        avg_dwell = sum(self._dwell_times) / len(self._dwell_times) if self._dwell_times else 0
-        self.lbl_dwell.setText(f"{avg_dwell:.0f}s" if avg_dwell else "—")
-
-    def get_stats(self) -> dict:
-        return {
-            "active_sessions": self._active_sessions,
-            "total_visits": self._total_visits,
-            "success_count": self._success_count,
-        }

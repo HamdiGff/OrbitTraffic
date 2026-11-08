@@ -1,29 +1,25 @@
 """
 Keyword-to-Traffic Flow Engine
-Simulates: Google Search → result click → site browse → optional return visit.
-Implements CTR curves, SERP position modeling, long-tail expansion, and bounce control.
+Orchestrates end-to-end organic traffic generation with:
+1. Pogo-Sticking (RankBrain competitor dissatisfaction -> Target satisfaction)
+2. Multi-Page Organic Journeys (GA4 internal link exploration)
+3. Persona pre-warming with authentic third-party cookies
+4. Real-time telemetry callbacks
 """
 import asyncio
 import random
-import re
 from typing import List, Optional, Dict
 from dataclasses import dataclass, field
 from utils.logger import get_logger
+from behavior.pogo_sticking import execute_pogo_sticking_flow
+from behavior.journey import OrganicJourneyEngine
+from browser.persona import CookieFarmManager
 
-logger = get_logger("keyword.engine")
+logger = get_logger("traffic_keyword.engine")
 
-# Realistic organic CTR by SERP position (based on industry studies)
 SERP_CTR_BY_POSITION = {
-    1: 0.287,
-    2: 0.153,
-    3: 0.097,
-    4: 0.071,
-    5: 0.051,
-    6: 0.040,
-    7: 0.034,
-    8: 0.027,
-    9: 0.021,
-    10: 0.017,
+    1: 0.287, 2: 0.153, 3: 0.097, 4: 0.071, 5: 0.051,
+    6: 0.040, 7: 0.034, 8: 0.027, 9: 0.021, 10: 0.017,
 }
 
 SEARCH_ENGINES = {
@@ -32,17 +28,15 @@ SEARCH_ENGINES = {
     "duckduckgo": "https://duckduckgo.com/?q={query}&kl={lang}",
 }
 
-# Common referrer sources for organic traffic variety
 REFERRER_SOURCES = [
     "https://www.google.com/",
     "https://www.bing.com/",
     "https://duckduckgo.com/",
     "https://www.reddit.com/",
     "https://www.facebook.com/",
-    "https://t.co/",  # Twitter/X
+    "https://t.co/",
     "https://www.linkedin.com/",
-    "https://news.ycombinator.com/",
-    "",  # Direct traffic (no referrer)
+    "",
 ]
 
 
@@ -52,9 +46,11 @@ class Keyword:
     target_url: str
     search_engine: str = "google"
     language: str = "en"
-    target_position: int = 1  # Desired SERP position to click
+    target_position: int = 1
     weight: float = 1.0
     daily_visits: int = 10
+    enable_pogo: bool = True
+    journey_hops: int = 2
     tags: List[str] = field(default_factory=list)
 
     def get_ctr(self) -> float:
@@ -65,32 +61,25 @@ class Keyword:
         return tpl.format(query=self.text.replace(" ", "+"), lang=self.language)
 
     def long_tail_variants(self) -> List[str]:
-        """Generate long-tail variants of the keyword for natural search variety."""
         base = self.text
         variants = [
             base,
             f"best {base}",
             f"{base} review",
-            f"{base} 2025",
+            f"{base} 2026",
             f"how to {base}",
-            f"{base} near me",
-            f"cheap {base}",
+            f"{base} online",
             f"{base} guide",
-            f"what is {base}",
         ]
-        # Shuffle and return a random subset
         random.shuffle(variants)
-        return variants[:random.randint(1, 3)]
+        return variants[:2]
 
 
 class KeywordEngine:
-    """
-    Orchestrates keyword → traffic sessions end-to-end.
-    """
-
     def __init__(self, browser_controller, proxy_pool=None):
         self.browser = browser_controller
         self.proxy_pool = proxy_pool
+        self.persona_manager = CookieFarmManager()
         self._session_count = 0
 
     async def execute_keyword_session(
@@ -98,43 +87,86 @@ class KeywordEngine:
         keyword: Keyword,
         fingerprint=None,
         progress_cb=None,
+        action_cb=None,
     ) -> dict:
-        """
-        Full session: search → find result → click → browse target.
-        Returns session result dict.
-        """
         import time
         result = {
-            "keyword": keyword.text, "target": keyword.target_url,
-            "success": False, "source": "search",
-            "dwell_seconds": 0, "timestamp": time.time(),
+            "keyword": keyword.text,
+            "target": keyword.target_url,
+            "success": False,
+            "source": "organic_search",
+            "dwell_seconds": 0,
+            "timestamp": time.time(),
+            "hops_completed": 1,
+            "pogo_used": False,
+            "proxy_ip": "Direct",
         }
 
+        proxy = self.proxy_pool.get() if self.proxy_pool else None
+        if proxy:
+            result["proxy_ip"] = f"{proxy.host}:{proxy.port}"
+
         try:
-            proxy = self.proxy_pool.get() if self.proxy_pool else None
+            if action_cb:
+                action_cb("Generating stealth fingerprint & persona...")
+
+            from browser.fingerprint import FingerprintProfile
+            fp = fingerprint or FingerprintProfile()
+
+            # Create context
+            context = await self.browser.new_stealth_context(profile=fp, proxy=proxy)
+
+            # Optional persona warm-up
+            if random.random() < 0.4:
+                if action_cb:
+                    action_cb("Warming up cookies with authoritative seeds...")
+                await self.persona_manager.warm_up_context(context, fast_mode=True)
+
+            page = await context.new_page()
+
             search_url = self._pick_search_url(keyword)
 
-            # Randomly choose: direct or via search
-            if random.random() < 0.25:
-                # Direct traffic with referrer variation
-                result["source"] = "direct"
-                dwell = await self.browser.visit_url(
-                    keyword.target_url,
-                    proxy=proxy,
-                    fingerprint=fingerprint,
-                    referrer=random.choice(REFERRER_SOURCES),
+            if keyword.enable_pogo and random.random() < 0.75:
+                # Pogo-Sticking execution
+                if action_cb:
+                    action_cb(f"Executing Pogo-Stick simulation on '{keyword.text}'...")
+                pogo_res = await execute_pogo_sticking_flow(
+                    page=page,
+                    search_url=search_url,
+                    target_url=keyword.target_url,
+                    target_min_dwell=30,
+                    target_max_dwell=120,
                 )
+                result["pogo_used"] = pogo_res.get("pogo_executed", False)
+                result["dwell_seconds"] = pogo_res.get("target_dwell", 0)
             else:
-                # Search → click flow
-                result["source"] = "organic_search"
+                # Direct or standard search
+                if action_cb:
+                    action_cb(f"Navigating to SERP for '{keyword.text}'...")
                 dwell = await self.browser.search_and_click(
                     search_url=search_url,
                     target_url=keyword.target_url,
                     proxy=proxy,
-                    fingerprint=fingerprint,
+                    fingerprint=fp,
                 )
+                result["dwell_seconds"] = dwell
 
-            result["dwell_seconds"] = dwell
+            # Multi-Hop Organic Journey
+            if keyword.journey_hops > 1:
+                from urllib.parse import urlparse
+                domain = urlparse(keyword.target_url).netloc
+                journey_engine = OrganicJourneyEngine(page, target_domain=domain)
+                if action_cb:
+                    action_cb(f"Exploring internal site pages ({keyword.journey_hops} hops)...")
+                journey_res = await journey_engine.execute_journey(
+                    max_hops=keyword.journey_hops,
+                    hop_min_dwell=15,
+                    hop_max_dwell=45,
+                )
+                result["hops_completed"] = journey_res["total_hops"]
+                result["dwell_seconds"] += journey_res["total_dwell_seconds"]
+
+            await context.close()
             result["success"] = True
             self._session_count += 1
 
@@ -142,7 +174,7 @@ class KeywordEngine:
                 self.proxy_pool.mark_success(proxy)
 
         except Exception as e:
-            logger.error(f"Keyword session failed for '{keyword.text}': {e}")
+            logger.error(f"Keyword session failed: {e}")
             result["error"] = str(e)
             if proxy:
                 self.proxy_pool.mark_failed(proxy)
@@ -152,13 +184,9 @@ class KeywordEngine:
         return result
 
     def _pick_search_url(self, keyword: Keyword) -> str:
-        """Pick search URL with realistic engine distribution."""
-        engine_weights = {"google": 0.91, "bing": 0.07, "duckduckgo": 0.02}
-        engines = list(engine_weights.keys())
-        weights = list(engine_weights.values())
-        engine = random.choices(engines, weights=weights)[0]
-        variant = random.choice(keyword.long_tail_variants())
+        engine = keyword.search_engine if keyword.search_engine in SEARCH_ENGINES else "google"
         tpl = SEARCH_ENGINES[engine]
+        variant = random.choice(keyword.long_tail_variants())
         return tpl.format(query=variant.replace(" ", "+"), lang=keyword.language)
 
     async def run_campaign(
@@ -167,15 +195,9 @@ class KeywordEngine:
         total_visits: int,
         concurrency: int = 3,
         on_progress=None,
+        on_action=None,
     ):
-        """
-        Run a full traffic campaign across multiple keywords.
-        Distributes visits proportionally by keyword weight.
-        """
-        from browser.fingerprint import FingerprintProfile
-        import asyncio
-
-        total_weight = sum(k.weight for k in keywords)
+        total_weight = sum(k.weight for k in keywords) or 1.0
         visit_plan = []
         for kw in keywords:
             visits = max(1, int((kw.weight / total_weight) * total_visits))
@@ -184,13 +206,17 @@ class KeywordEngine:
         random.shuffle(visit_plan)
         semaphore = asyncio.Semaphore(concurrency)
 
-        async def bounded_session(kw: Keyword):
+        async def bounded_session(idx: int, kw: Keyword):
             async with semaphore:
-                fp = FingerprintProfile()
-                res = await self.execute_keyword_session(kw, fingerprint=fp, progress_cb=on_progress)
-                # Natural inter-session delay
-                await asyncio.sleep(random.uniform(2, 15))
+                def worker_action(msg):
+                    if on_action:
+                        on_action(idx % concurrency + 1, msg, kw.text)
+
+                res = await self.execute_keyword_session(
+                    kw, progress_cb=on_progress, action_cb=worker_action
+                )
+                await asyncio.sleep(random.uniform(2, 8))
                 return res
 
-        tasks = [bounded_session(kw) for kw in visit_plan]
+        tasks = [bounded_session(i, kw) for i, kw in enumerate(visit_plan)]
         return await asyncio.gather(*tasks)

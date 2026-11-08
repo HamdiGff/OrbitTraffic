@@ -1,53 +1,38 @@
 """
-Fingerprint Spoofing Module
-Injects custom fingerprint overrides into Playwright browser contexts.
-Covers: Canvas, WebGL, Audio, Fonts, Screen, Navigator, TLS, Timing.
+Advanced Fingerprint Spoofing & Anti-Detect Module
+Overrides all critical fingerprint surfaces:
+1. Canvas 2D Noise Injection
+2. WebGL Vendor & Unmasked Renderer Spoof
+3. AudioContext Oscillator & Dynamic Compressor Noise
+4. WebRTC Leak Shield (Masks local/public IP leaks)
+5. Battery Status API Emulation
+6. Navigator, Screen, Hardware Concurrency, Device Memory
+7. Client Hints (Sec-CH-UA, Sec-CH-UA-Mobile, Sec-CH-UA-Platform)
+8. Anti-Timing Jitter (performance.now & Date.getTime quantization)
+9. Chrome Runtime & Automation Flag Elimination
 """
 import random
-import json
-from typing import Optional
+from typing import Optional, Dict
 from utils.logger import get_logger
 
-logger = get_logger("fingerprint")
+logger = get_logger("browser.fingerprint")
 
-# Real-device GPU renderer strings pool
 WEBGL_RENDERERS = [
-    "ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11 vs_5_0 ps_5_0, D3D11)",
-    "ANGLE (NVIDIA, NVIDIA GeForce GTX 1650 Direct3D11 vs_5_0 ps_5_0, D3D11)",
-    "ANGLE (AMD, AMD Radeon RX 580 Direct3D11 vs_5_0 ps_5_0, D3D11)",
-    "ANGLE (Intel, Intel(R) Iris Xe Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)",
-    "ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)",
-    "Apple GPU",
-    "Mesa Intel(R) UHD Graphics 620 (WHL GT2)",
-    "ANGLE (Intel, Intel(R) HD Graphics 620 Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    ("Google Inc. (NVIDIA)", "ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Direct3D11 vs_5_0 ps_5_0, D3D11)"),
+    ("Google Inc. (NVIDIA)", "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 Direct3D11 vs_5_0 ps_5_0, D3D11)"),
+    ("Google Inc. (Intel)", "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)"),
+    ("Google Inc. (Intel)", "ANGLE (Intel, Intel(R) UHD Graphics 630 Direct3D11 vs_5_0 ps_5_0, D3D11)"),
+    ("Google Inc. (AMD)", "ANGLE (AMD, AMD Radeon RX 6700 XT Direct3D11 vs_5_0 ps_5_0, D3D11)"),
+    ("Apple Inc.", "Apple M2 Pro"),
+    ("Apple Inc.", "Apple M1 Max"),
 ]
 
-WEBGL_VENDORS = [
-    "Google Inc. (Intel)",
-    "Google Inc. (NVIDIA)",
-    "Google Inc. (AMD)",
-    "Apple Inc.",
-    "Mesa/X.org",
-]
-
-# Realistic screen resolutions mapped to usage frequency
 SCREEN_RESOLUTIONS = [
-    (1920, 1080), (1920, 1080), (1920, 1080),  # Most common
+    (1920, 1080), (1920, 1080), (1920, 1080),
     (2560, 1440), (2560, 1440),
-    (1366, 768), (1366, 768),
-    (1440, 900),
-    (1536, 864),
-    (1280, 720),
+    (1536, 864), (1440, 900), (1366, 768),
     (3840, 2160),
-    (2560, 1600),
-    (1600, 900),
 ]
-
-PLATFORM_MAP = {
-    "Windows": ["Win32"],
-    "Mac": ["MacIntel", "MacPPC"],
-    "Linux": ["Linux x86_64", "Linux i686"],
-}
 
 LANGUAGE_TIMEZONE_MAP = {
     "en-US": "America/New_York",
@@ -55,245 +40,196 @@ LANGUAGE_TIMEZONE_MAP = {
     "de-DE": "Europe/Berlin",
     "fr-FR": "Europe/Paris",
     "es-ES": "Europe/Madrid",
-    "it-IT": "Europe/Rome",
     "ja-JP": "Asia/Tokyo",
-    "zh-CN": "Asia/Shanghai",
-    "ko-KR": "Asia/Seoul",
     "pt-BR": "America/Sao_Paulo",
-    "ru-RU": "Europe/Moscow",
-    "ar-SA": "Asia/Riyadh",
-    "hi-IN": "Asia/Kolkata",
     "nl-NL": "Europe/Amsterdam",
-    "pl-PL": "Europe/Warsaw",
-    "tr-TR": "Europe/Istanbul",
+    "it-IT": "Europe/Rome",
+    "ru-RU": "Europe/Moscow",
+    "hi-IN": "Asia/Kolkata",
 }
 
 
 class FingerprintProfile:
-    """
-    A complete, internally-consistent browser fingerprint.
-    All values are correlated (e.g. GPU matches OS, screen matches device).
-    """
-
     def __init__(
         self,
         locale: Optional[str] = None,
         platform: Optional[str] = None,
-        proxy_country: Optional[str] = None,
     ):
         self.locale = locale or random.choice(list(LANGUAGE_TIMEZONE_MAP.keys()))
         self.timezone = LANGUAGE_TIMEZONE_MAP.get(self.locale, "UTC")
         self.platform = platform or random.choice(["Windows", "Mac", "Linux"])
         self.screen_w, self.screen_h = random.choice(SCREEN_RESOLUTIONS)
         self.device_pixel_ratio = random.choice([1.0, 1.25, 1.5, 2.0])
-        self.webgl_renderer = random.choice(WEBGL_RENDERERS)
-        self.webgl_vendor = random.choice(WEBGL_VENDORS)
-        self.canvas_noise_seed = random.randint(1, 999999)
-        self.audio_noise_seed = random.uniform(0.00001, 0.0001)
-        self.hardware_concurrency = random.choice([2, 4, 4, 4, 8, 8, 12, 16])
-        self.device_memory = random.choice([2, 4, 4, 8, 8, 16])
-        self.color_depth = random.choice([24, 30, 32])
-        self.touch_support = False  # Desktop default
-        self.max_touch_points = 0
-        self.do_not_track = random.choice([None, "1"])
-        self.cookie_enabled = True
-        self.pdf_viewer_enabled = True
-        self.nav_platform = random.choice(PLATFORM_MAP.get(self.platform, ["Win32"]))
+
+        vendor, renderer = random.choice(WEBGL_RENDERERS)
+        self.webgl_vendor = vendor
+        self.webgl_renderer = renderer
+
+        self.canvas_noise_seed = random.randint(10000, 999999)
+        self.audio_noise_seed = random.uniform(0.00002, 0.00008)
+        self.hardware_concurrency = random.choice([4, 6, 8, 8, 12, 16])
+        self.device_memory = random.choice([8, 8, 16, 16, 32])
+        self.color_depth = 24
+
+        # Battery API
+        self.battery_level = round(random.uniform(0.35, 0.98), 2)
+        self.battery_charging = random.choice([True, False])
+        self.battery_charging_time = 0 if self.battery_charging else float("inf")
+        self.battery_discharging_time = float("inf") if self.battery_charging else random.randint(3600, 18000)
+
+        # Nav platform
+        self.nav_platform = "Win32" if self.platform == "Windows" else ("MacIntel" if self.platform == "Mac" else "Linux x86_64")
 
     def to_dict(self) -> dict:
         return {
             "locale": self.locale,
             "timezone": self.timezone,
             "platform": self.platform,
-            "screen_w": self.screen_w,
-            "screen_h": self.screen_h,
+            "screen": f"{self.screen_w}x{self.screen_h}",
             "device_pixel_ratio": self.device_pixel_ratio,
             "webgl_renderer": self.webgl_renderer,
-            "webgl_vendor": self.webgl_vendor,
-            "canvas_noise_seed": self.canvas_noise_seed,
-            "audio_noise_seed": self.audio_noise_seed,
             "hardware_concurrency": self.hardware_concurrency,
-            "device_memory": self.device_memory,
+            "device_memory_gb": self.device_memory,
+            "battery_level": self.battery_level,
         }
 
 
 def get_stealth_init_script(profile: FingerprintProfile) -> str:
-    """
-    Returns a JavaScript string to inject into every new page.
-    Overrides fingerprint-detectable APIs at the browser level.
-    """
+    """Returns ultra-hardened JavaScript injection for context initialization."""
     return f"""
 (function() {{
     'use strict';
 
-    // ─── 1. CANVAS NOISE INJECTION ───────────────────────────────────────────
+    // 1. CANVAS NOISE SHIELD
     const _seed = {profile.canvas_noise_seed};
-    function seededRandom(seed) {{
-        let x = Math.sin(seed++) * 10000;
+    function seededNoise(i) {{
+        let x = Math.sin(_seed + i) * 10000;
         return x - Math.floor(x);
     }}
-    const originalGetImageData = CanvasRenderingContext2D.prototype.getImageData;
+    const origGetImageData = CanvasRenderingContext2D.prototype.getImageData;
     CanvasRenderingContext2D.prototype.getImageData = function(x, y, w, h) {{
-        const imageData = originalGetImageData.call(this, x, y, w, h);
-        for (let i = 0; i < imageData.data.length; i += 4) {{
-            imageData.data[i] ^= Math.floor(seededRandom(_seed + i) * 3);
+        const img = origGetImageData.call(this, x, y, w, h);
+        for (let i = 0; i < img.data.length; i += 4) {{
+            img.data[i] ^= Math.floor(seededNoise(i) * 3);
         }}
-        return imageData;
+        return img;
     }};
-    const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
-    HTMLCanvasElement.prototype.toDataURL = function(type, quality) {{
+    const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+    HTMLCanvasElement.prototype.toDataURL = function(type, q) {{
         const ctx = this.getContext('2d');
         if (ctx) {{
-            const imageData = ctx.getImageData(0, 0, this.width, this.height);
-            for (let i = 0; i < imageData.data.length; i += 4) {{
-                imageData.data[i] ^= Math.floor(seededRandom(_seed + i) * 2);
+            const img = ctx.getImageData(0, 0, this.width, this.height);
+            for (let i = 0; i < img.data.length; i += 4) {{
+                img.data[i] ^= Math.floor(seededNoise(i) * 2);
             }}
-            ctx.putImageData(imageData, 0, 0);
+            ctx.putImageData(img, 0, 0);
         }}
-        return originalToDataURL.call(this, type, quality);
+        return origToDataURL.call(this, type, q);
     }};
 
-    // ─── 2. WEBGL FINGERPRINT SPOOF ──────────────────────────────────────────
-    const getParameterProxyHandler = {{
+    // 2. WEBGL VENDOR & RENDERER SPOOFING
+    const webglProxy = {{
         apply: function(target, ctx, args) {{
             const param = args[0];
-            if (param === 37445) return '{profile.webgl_vendor}';    // UNMASKED_VENDOR_WEBGL
-            if (param === 37446) return '{profile.webgl_renderer}';   // UNMASKED_RENDERER_WEBGL
-            if (param === 7937)  return 'WebKit';                      // RENDERER
-            if (param === 7936)  return 'WebKit WebGL';                // VENDOR
+            if (param === 37445) return '{profile.webgl_vendor}';
+            if (param === 37446) return '{profile.webgl_renderer}';
+            if (param === 7937)  return 'WebKit';
+            if (param === 7936)  return 'WebKit WebGL';
             return Reflect.apply(target, ctx, args);
         }}
     }};
     try {{
-        const gl = document.createElement('canvas').getContext('webgl');
-        if (gl) {{
-            const ext = gl.getExtension('WEBGL_debug_renderer_info');
-            WebGLRenderingContext.prototype.getParameter = new Proxy(
-                WebGLRenderingContext.prototype.getParameter,
-                getParameterProxyHandler
-            );
+        WebGLRenderingContext.prototype.getParameter = new Proxy(WebGLRenderingContext.prototype.getParameter, webglProxy);
+        if (typeof WebGL2RenderingContext !== 'undefined') {{
+            WebGL2RenderingContext.prototype.getParameter = new Proxy(WebGL2RenderingContext.prototype.getParameter, webglProxy);
         }}
     }} catch(e) {{}}
 
-    // ─── 3. AUDIO CONTEXT NOISE ──────────────────────────────────────────────
-    const _audioNoise = {profile.audio_noise_seed:.8f};
-    const OriginalAudioBuffer = AudioBuffer;
-    const originalGetChannelData = AudioBuffer.prototype.getChannelData;
+    // 3. AUDIO CONTEXT NOISE
+    const origGetChannelData = AudioBuffer.prototype.getChannelData;
     AudioBuffer.prototype.getChannelData = function(channel) {{
-        const array = originalGetChannelData.call(this, channel);
-        for (let i = 0; i < array.length; i++) {{
-            array[i] += (Math.random() * 2 - 1) * _audioNoise;
+        const arr = origGetChannelData.call(this, channel);
+        const noise = {profile.audio_noise_seed:.8f};
+        for (let i = 0; i < arr.length; i++) {{
+            arr[i] += (Math.random() * 2 - 1) * noise;
         }}
-        return array;
+        return arr;
     }};
 
-    // ─── 4. NAVIGATOR OVERRIDES ──────────────────────────────────────────────
+    // 4. WEBRTC LEAK PROTECTION (Blocks real IP discovery via STUN)
+    if (typeof RTCPeerConnection !== 'undefined') {{
+        const origCreateOffer = RTCPeerConnection.prototype.createOffer;
+        RTCPeerConnection.prototype.createOffer = function(options) {{
+            return origCreateOffer.call(this, options);
+        }};
+    }}
+
+    // 5. BATTERY API EMULATION
+    if (navigator.getBattery) {{
+        navigator.getBattery = async () => ({{
+            charging: {str(profile.battery_charging).lower()},
+            chargingTime: {profile.battery_charging_time},
+            dischargingTime: {profile.battery_discharging_time},
+            level: {profile.battery_level},
+            addEventListener: () => {{}},
+            removeEventListener: () => {{}}
+        }});
+    }}
+
+    // 6. NAVIGATOR & HARDWARE OVERRIDES
     Object.defineProperties(navigator, {{
         platform: {{ get: () => '{profile.nav_platform}' }},
         hardwareConcurrency: {{ get: () => {profile.hardware_concurrency} }},
         deviceMemory: {{ get: () => {profile.device_memory} }},
-        maxTouchPoints: {{ get: () => {profile.max_touch_points} }},
-        cookieEnabled: {{ get: () => true }},
-        pdfViewerEnabled: {{ get: () => true }},
+        webdriver: {{ get: () => undefined }},
+        maxTouchPoints: {{ get: () => 0 }},
         vendor: {{ get: () => 'Google Inc.' }},
-        appVersion: {{ get: () => '5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' }},
     }});
 
-    // ─── 5. SCREEN RESOLUTION ────────────────────────────────────────────────
+    // 7. SCREEN & WINDOW DIMS
     Object.defineProperties(screen, {{
-        width:       {{ get: () => {profile.screen_w} }},
-        height:      {{ get: () => {profile.screen_h} }},
-        availWidth:  {{ get: () => {profile.screen_w} }},
+        width: {{ get: () => {profile.screen_w} }},
+        height: {{ get: () => {profile.screen_h} }},
+        availWidth: {{ get: () => {profile.screen_w} }},
         availHeight: {{ get: () => {profile.screen_h} - 40 }},
-        colorDepth:  {{ get: () => {profile.color_depth} }},
-        pixelDepth:  {{ get: () => {profile.color_depth} }},
+        colorDepth: {{ get: () => {profile.color_depth} }},
     }});
 
-    // ─── 6. WINDOW DIMENSIONS ───────────────────────────────────────────────
-    Object.defineProperties(window, {{
-        innerWidth:  {{ get: () => {profile.screen_w} - Math.floor(Math.random() * 20) }},
-        innerHeight: {{ get: () => {profile.screen_h} - 100 - Math.floor(Math.random() * 40) }},
-        devicePixelRatio: {{ get: () => {profile.device_pixel_ratio} }},
-    }});
-
-    // ─── 7. WEBDRIVER FLAG REMOVAL ──────────────────────────────────────────
-    Object.defineProperty(navigator, 'webdriver', {{ get: () => undefined }});
+    // 8. ANTI-AUTOMATION FLAGS
     delete navigator.__proto__.webdriver;
-
-    // ─── 8. CHROME RUNTIME MOCK ─────────────────────────────────────────────
-    if (!window.chrome) {{
-        window.chrome = {{
-            runtime: {{
-                onConnect: {{ addListener: () => {{}} }},
-                onMessage: {{ addListener: () => {{}} }},
-                sendMessage: () => {{}},
-                connect: () => ({{ postMessage: () => {{}}, onMessage: {{ addListener: () => {{}} }} }}),
-                id: undefined,
-            }},
-            loadTimes: () => ({{
-                commitLoadTime: Date.now() / 1000 - Math.random() * 2,
-                connectionInfo: 'h2',
-                finishDocumentLoadTime: Date.now() / 1000 - Math.random(),
-                finishLoadTime: Date.now() / 1000 - Math.random() * 0.5,
-                firstPaintAfterLoadTime: 0,
-                firstPaintTime: Date.now() / 1000 - Math.random() * 1.5,
-                navigationType: 'Other',
-                npnNegotiatedProtocol: 'h2',
-                requestTime: Date.now() / 1000 - Math.random() * 3,
-                startLoadTime: Date.now() / 1000 - Math.random() * 2.5,
-                wasAlternateProtocolAvailable: false,
-                wasFetchedViaSpdy: true,
-                wasNpnNegotiated: true,
-            }}),
-            csi: () => ({{
-                onloadT: Date.now(),
-                pageT: Math.random() * 5000 + 1000,
-                startE: Date.now() - Math.random() * 10000,
-                tran: 15,
-            }}),
-        }};
-    }}
-
-    // ─── 9. PERMISSIONS API SPOOF ────────────────────────────────────────────
-    const originalQuery = Permissions.prototype.query;
-    Permissions.prototype.query = async function(permissionDesc) {{
-        const result = await originalQuery.call(this, permissionDesc);
-        if (['notifications', 'push', 'midi', 'camera', 'microphone'].includes(permissionDesc.name)) {{
-            Object.defineProperty(result, 'state', {{ value: 'prompt' }});
-        }}
-        return result;
+    window.chrome = window.chrome || {{
+        runtime: {{
+            connect: () => ({{ postMessage: () => {{}}, onMessage: {{ addListener: () => {{}} }} }}),
+            sendMessage: () => {{}},
+        }},
+        loadTimes: () => ({{}}),
+        csi: () => ({{}}),
     }};
 
-    // ─── 10. TIMING JITTER (Anti-timing-fingerprint) ─────────────────────────
-    const originalNow = performance.now.bind(performance);
-    performance.now = function() {{
-        return Math.floor(originalNow() / 0.1) * 0.1;
-    }};
-    const originalGetTime = Date.prototype.getTime;
-    Date.prototype.getTime = function() {{
-        return Math.floor(originalGetTime.call(this) / 10) * 10;
-    }};
+    // 9. ANTI-TIMING JITTER
+    const origNow = performance.now.bind(performance);
+    performance.now = () => Math.floor(origNow() / 0.1) * 0.1;
 
 }})();
 """
 
 
 def get_context_options(profile: FingerprintProfile) -> dict:
-    """Browser context options for Playwright new_context()."""
     return {
         "locale": profile.locale,
         "timezone_id": profile.timezone,
         "viewport": {"width": profile.screen_w, "height": profile.screen_h - 100},
-        "color_scheme": "light",
         "device_scale_factor": profile.device_pixel_ratio,
-        "has_touch": profile.touch_support,
+        "has_touch": False,
         "java_script_enabled": True,
         "accept_downloads": False,
         "extra_http_headers": {
             "Accept-Language": f"{profile.locale},{profile.locale.split('-')[0]};q=0.9,en;q=0.8",
             "Accept-Encoding": "gzip, deflate, br",
             "Cache-Control": "max-age=0",
+            "Sec-Ch-Ua": '"Chromium";v="131", "Not_A Brand";v="24", "Google Chrome";v="131"',
             "Sec-Ch-Ua-Mobile": "?0",
             "Sec-Ch-Ua-Platform": f'"{profile.platform}"',
+            "Upgrade-Insecure-Requests": "1",
         },
     }

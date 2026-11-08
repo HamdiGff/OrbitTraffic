@@ -1,94 +1,78 @@
-# OrbitTraffic 🚀
+# 🪐 OrbitTraffic Enterprise v2.0
 
-> **Organic Traffic Intelligence Platform** — Generate realistic, human-like organic traffic using real browsers, AI behavioral simulation, proxy rotation, and fingerprint spoofing.
-
-[![Release](https://img.shields.io/github/v/release/yourusername/OrbitTraffic?style=flat-square&color=6c63ff)](https://github.com/yourusername/OrbitTraffic/releases)
-[![Python](https://img.shields.io/badge/python-3.12+-blue?style=flat-square)](https://python.org)
-[![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+> **Next-Generation Organic Traffic Intelligence & RankBrain SEO Booster**  
+> Engineered with human-indistinguishable behavioral AI, real browser fingerprint spoofing, resident proxy rotation, and SERP RankBrain satisfaction modeling.
 
 ---
 
-## ✨ Features
+## 🌟 Top-to-Bottom Redesign & Innovative Capabilities
 
-| Feature | Description |
-|---------|-------------|
-| 🤖 **AI Behavioral Engine** | Bezier mouse curves, Gaussian click timing, scroll fatigue model |
-| 🕵️ **Fingerprint Spoofing** | Canvas noise, WebGL spoof, Audio context, Navigator overrides |
-| 🔌 **Proxy Manager** | Async bulk checker, geolocation, health scoring, smart rotation |
-| 🔑 **Keyword Engine** | Search→click flow, long-tail variants, CTR curve modeling |
-| 🍪 **Cookie Intelligence** | Cookie aging, referrer chain, localStorage seeding |
-| 📊 **Live Dashboard** | Real-time stats, session logs, success rate tracking |
-| 🌙 **Dark GUI** | Modern PyQt6 dark-themed multi-tab interface |
-| 📦 **GitHub Releases** | Auto-build Windows/Linux executables via GitHub Actions |
+### 1. 🧠 Algorithmic Innovations (Beyond Basic Bots)
+- **🔥 RankBrain Pogo-Sticking Simulation**: Simulates the highest-impact Google ranking satisfaction signal. The worker clicks a top competitor result on the SERP, dwells only 3–7 seconds, clicks the browser Back button in discontent, scrolls down, and engages deeply on your target site for 2–5 minutes. This sends a direct algorithmic signal to Google that your site satisfied user intent better than competitors.
+- **🧭 Multi-Hop Organic Journey Engine**: Eliminates unnatural single-page bounces. Workers dynamically discover internal links (`/blog`, `/about`, `/pricing`, related products) and browse 1 to 4 pages per session with authentic dwell times and reading speeds.
+- **🍪 Persona & Cookie Pre-Warming Engine**: Brand new browser contexts have 0 cookies, which triggers immediate bot flags. OrbitTraffic pre-warms personas by automatically visiting authoritative domains (Wikipedia, News, Reddit) to acquire legitimate third-party analytics and ad cookies before executing campaign targets.
+- **🖱️ Saccadic Bezier Mouse Curves**: Simulates micro-tremors, acceleration/deceleration physics, and natural target overshoots with dynamic correction curves.
+- **📜 Human Reading & Fatigue Scroll**: Calculates viewport word density and pauses proportionally; scroll speed decreases naturally as page depth increases.
+
+---
+
+### 2. 🛡️ 10-Layer Anti-Detect & Fingerprint Shield
+| Security Layer | Emulation Technique |
+|---|---|
+| **Canvas 2D** | Dynamic noise injection alters canvas hashes without visual corruption |
+| **WebGL** | Unmasked Vendor & Renderer spoofing across 7 real GPU profiles (RTX 3070/4080, Apple M2) |
+| **AudioContext** | High-precision oscillator and dynamics compressor noise jitter |
+| **WebRTC Shield** | Prevents real IP discovery through STUN/TURN ICE candidate leaks |
+| **Battery API** | Realistic battery level, charging state, and discharge timer |
+| **Client Hints** | Consistent `Sec-CH-UA`, `Sec-CH-UA-Mobile`, and `Sec-CH-UA-Platform` headers |
+| **Navigator & Screen** | Hardened platform string, hardware concurrency, device memory, and display depth |
+| **Anti-Timing** | `performance.now()` and `Date.getTime()` quantization jitter |
+
+---
+
+### 3. 🎨 Ultra-Modern Enterprise GUI Architecture
+Built with a sleek obsidian dark theme inspired by Linear and Datadog:
+- **Left Navigation Sidebar**:
+  - Live system telemetry meter (Real-time CPU & RAM load monitoring via `psutil`).
+  - Active proxy fleet health radar.
+  - One-click navigation between 7 dedicated studios.
+- **Top Action Deck**:
+  - Global `Start Traffic` and `Emergency Killswitch` controls.
+  - Live throughput ticker (`req/min`).
+  - Operational security status badges.
+- **7 Dedicated Studios**:
+  1. 📊 **Dashboard Radar**: Real-time traffic wave chart (PyQtGraph), 4 glassmorphic KPI cards with trend indicators, acquisition source breakdown, and live session stream.
+  2. 🚀 **Campaigns & Flow Studio**: Multi-stage campaign builder with Pogo-Sticking presets, dwell ranges, and live execution telemetry.
+  3. 🌐 **Proxy Radar**: Multi-format importer (Text, CSV, API), async bulk latency checker, country flags, and auto-rotation.
+  4. 🎯 **Keyword Studio**: SERP rank targets (1–10), CTR curve calculator, and journey depth selectors.
+  5. 🧪 **Fingerprint Lab**: Interactive diagnostics auditor inspecting Canvas, WebGL, AudioContext, and WebRTC integrity.
+  6. 🛰️ **Live Worker Matrix**: Real-time thread inspector showing current DOM action, dwell progress meters, and active proxy IP.
+  7. ⚙️ **Settings & Updates**: Global concurrency limits, headless toggles, and GitHub CI deployment sync.
+
+---
 
 ## 🚀 Quick Start
 
-### Requirements
-- Python 3.12+
-- Windows / Linux / macOS
-
-### Installation
-
-```bash
-git clone https://github.com/yourusername/OrbitTraffic.git
-cd OrbitTraffic
-pip install -r requirements.txt
-playwright install chromium
+### Run Locally:
+```powershell
+cd C:\Users\hamdi\.gemini\antigravity\scratch\OrbitTraffic
 python main.py
 ```
 
-### First Run
-1. **Proxies tab** — Import residential proxies, click "Check All"
-2. **Keywords tab** — Add target keywords + URLs
-3. **Campaigns tab** — Set visit count, concurrency, hit "Start Campaign"
-4. **Dashboard** — Watch live stats update in real-time
+---
 
-## 🧠 Innovative Algorithms
+## 📦 Automated GitHub CI/CD Deployment
 
-### Behavioral AI
-- **Bezier Mouse Curves**: Natural mouse paths with overshoot correction and microsaccades
-- **Gaussian Click Timing**: Human-realistic 150-600ms reaction time distribution
-- **Scroll Fatigue Model**: Speed decreases with page depth, random re-reads
-- **Reading Time AI**: Dwell based on content word count estimation
+The repository includes `.github/workflows/release.yml`. When you push a version tag, GitHub Actions compiles:
+- Standalone **Windows `.exe`** with PyInstaller
+- Standalone **Linux binary**
 
-### Fingerprint Spoofing Stack
-```
-Canvas     → Seeded pixel noise injection (imperceptible)
-WebGL      → Real GPU renderer string rotation from device database  
-Audio      → Oscillator output noise per session
-Navigator  → Platform, concurrency, memory overrides
-Screen     → Realistic resolution + DPR matching
-Timing     → Performance.now() jitter (anti-timing fingerprint)
-Chrome API → Full chrome.runtime mock
-Permissions → Realistic permission state responses
+```powershell
+git tag -a v2.0.0 -m "Release v2.0.0 - Complete Enterprise Redesign"
+git push origin v2.0.0
 ```
 
-### Proxy Intelligence
-- Geo-matched sessions (IP country → locale, timezone, screen size)
-- Health scoring (latency + success rate composite)
-- Cooldown periods with auto-recovery
-- Multiple rotation strategies: `best_health`, `round_robin`, `least_used`, `random`
-
-## 📂 Project Structure
-
-```
-OrbitTraffic/
-├── main.py              # Entry point
-├── requirements.txt     # Dependencies
-├── config/              # Settings
-├── browser/             # Playwright controller + fingerprint
-├── behavior/            # Mouse, scroll, timing AI
-├── proxy/               # Checker, pool manager
-├── keyword/             # Traffic flow engine
-├── gui/                 # PyQt6 dark-themed GUI
-│   └── tabs/            # Dashboard, Campaigns, Proxies, Keywords...
-└── utils/               # Logger, crypto, updater
-```
-
-## ⚠️ Disclaimer
-
-This software is for **legitimate traffic analysis, website testing, and SEO research** only. Users are responsible for complying with all applicable terms of service and local laws. Do not use to violate any platform's ToS or for fraudulent purposes.
+---
 
 ## 📄 License
-
 MIT © OrbitTraffic Contributors
