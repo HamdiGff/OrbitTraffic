@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
-from keyword.engine import Keyword
+from traffic_keyword.engine import Keyword
 from utils.logger import get_logger
 
 logger = get_logger("gui.keywords")

@@ -14,7 +14,7 @@ from PyQt6.QtGui import QColor
 import qasync
 
 from browser.controller import BrowserController
-from keyword.engine import KeywordEngine
+from traffic_keyword.engine import KeywordEngine
 from utils.logger import get_logger
 
 logger = get_logger("gui.campaigns")
