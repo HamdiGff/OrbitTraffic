@@ -72,10 +72,10 @@ class ProxyTab(QWidget):
         iv.addWidget(self.proxy_input)
 
         b_row = QHBoxLayout()
-        self.btn_import = QPushButton("📥 Import Text")
+        self.btn_import = QPushButton("Import Text")
         self.btn_import.setObjectName("primaryActionBtn")
         self.btn_import.clicked.connect(self._import_from_text)
-        self.btn_file = QPushButton("📂 Load File")
+        self.btn_file = QPushButton("Load File")
         self.btn_file.setObjectName("secondaryBtn")
         self.btn_file.clicked.connect(self._load_from_file)
         b_row.addWidget(self.btn_import)
@@ -97,7 +97,7 @@ class ProxyTab(QWidget):
         self.api_key.setPlaceholderText("Enter API token or rotating endpoint")
         av.addWidget(self.api_key)
 
-        self.btn_api_sync = QPushButton("⚡ Sync from Provider")
+        self.btn_api_sync = QPushButton("Sync from Provider")
         self.btn_api_sync.setObjectName("secondaryBtn")
         av.addWidget(self.btn_api_sync)
         left_layout.addWidget(api_group)
@@ -111,15 +111,15 @@ class ProxyTab(QWidget):
 
         # Toolbar
         bar = QHBoxLayout()
-        self.btn_check_all = QPushButton("⚡ Test Latency & Geolocation")
+        self.btn_check_all = QPushButton("Test Latency & Geolocation")
         self.btn_check_all.setObjectName("primaryActionBtn")
         self.btn_check_all.clicked.connect(self._check_all)
 
-        self.btn_purge_dead = QPushButton("🗑️ Remove Dead")
+        self.btn_purge_dead = QPushButton("Purge Inactive")
         self.btn_purge_dead.setObjectName("dangerBtn")
         self.btn_purge_dead.clicked.connect(self._remove_dead)
 
-        self.btn_export = QPushButton("💾 Export Alive")
+        self.btn_export = QPushButton("Export Verified")
         self.btn_export.setObjectName("secondaryBtn")
         self.btn_export.clicked.connect(self._export_alive)
 

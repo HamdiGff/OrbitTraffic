@@ -30,7 +30,7 @@ class WorkerSlotCard(QFrame):
 
         # Header
         top = QHBoxLayout()
-        self.id_lbl = QLabel(f"⚡ WORKER SLOT #{self.slot_id}")
+        self.id_lbl = QLabel(f"WORKER THREAD #{self.slot_id}")
         self.id_lbl.setStyleSheet("color: #FFFFFF; font-size: 12px; font-weight: 700;")
         top.addWidget(self.id_lbl)
         top.addStretch()

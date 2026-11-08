@@ -1,25 +1,25 @@
 """
-OrbitTraffic — Campaigns & Organic Flow Studio
-Configures and launches sophisticated multi-stage organic campaigns:
-- Pogo-Sticking RankBrain Boost
-- Multi-Hop Internal Site Exploration (1-4 pages)
-- Persona & Cookie Pre-warming
-- Search Engine Distribution & Long-Tail Variations
+OrbitTraffic — Redesigned Campaigns & Organic Flow Studio
+Replaces primitive checkboxes with luxury FeatureToggleCards and iOS-style switches.
+Includes Circadian Dayparting, Mobile Device Matrix, and Live Report Export.
 """
 import asyncio
 import time
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QGroupBox, QSpinBox,
-    QComboBox, QCheckBox, QProgressBar, QHeaderView,
-    QFrame, QSplitter, QMessageBox,
+    QComboBox, QProgressBar, QHeaderView,
+    QFrame, QSplitter, QFileDialog, QMessageBox, QScrollArea,
 )
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QFont
 import qasync
 
 from browser.controller import BrowserController
 from traffic_keyword.engine import KeywordEngine, Keyword
+from gui.components.toggle_switch import FeatureToggleCard
+from gui.typography import FontSystem
+from analytics.report_generator import export_client_csv_report
 from utils.logger import get_logger
 
 logger = get_logger("gui.campaigns")
@@ -35,54 +35,71 @@ class CampaignsTab(QWidget):
         self._pogo_count = 0
         self._start_time = None
         self._campaign_task = None
+        self._completed_sessions = []
         self.browser = None
         self._build_ui()
 
     def _build_ui(self):
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(20, 16, 20, 16)
+        main_layout.setContentsMargins(22, 18, 22, 18)
         main_layout.setSpacing(14)
 
+        # Header with Export action
+        top_h = QHBoxLayout()
         header_v = QVBoxLayout()
-        title = QLabel("🚀 Campaigns & Organic Journey Studio")
-        title.setStyleSheet("color: #FFFFFF; font-size: 16px; font-weight: 700;")
-        subtitle = QLabel("Configure organic search flows, multi-page deep sessions, and RankBrain boosts.")
-        subtitle.setStyleSheet("color: #94A3B8; font-size: 12px;")
+        title = QLabel("CAMPAIGN ARCHITECT & ORGANIC FLOW")
+        title.setFont(FontSystem.get_display_font(14))
+        title.setStyleSheet("color: #FFFFFF; font-weight: 700; letter-spacing: 0.5px;")
+        subtitle = QLabel("Configure Pogo-Sticking curves, multi-hop internal page sessions, and mobile emulation.")
+        subtitle.setFont(FontSystem.get_badge_font(9))
+        subtitle.setStyleSheet("color: #64748B;")
         header_v.addWidget(title)
         header_v.addWidget(subtitle)
-        main_layout.addLayout(header_v)
+        top_h.addLayout(header_v)
+        top_h.addStretch()
+
+        self.btn_export_audit = QPushButton("💾 Export Client Report")
+        self.btn_export_audit.setObjectName("secondaryBtn")
+        self.btn_export_audit.setFont(FontSystem.get_badge_font(9))
+        self.btn_export_audit.clicked.connect(self._export_report)
+        top_h.addWidget(self.btn_export_audit)
+        main_layout.addLayout(top_h)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # ── Left Panel: Campaign Architect ────────────────────────
-        left = QWidget()
-        left_layout = QVBoxLayout(left)
+        # ── Left: Controls & Executive Feature Toggles ───────────
+        left_scroll = QScrollArea()
+        left_scroll.setWidgetResizable(True)
+        left_scroll.setFrameShape(QFrame.Shape.NoFrame)
+
+        left_content = QWidget()
+        left_layout = QVBoxLayout(left_content)
         left_layout.setContentsMargins(0, 0, 10, 0)
         left_layout.setSpacing(12)
 
         # Presets
-        preset_group = QGroupBox("Campaign Architecture Preset")
+        preset_group = QGroupBox("CAMPAIGN BLUEPRINTS")
         preset_v = QVBoxLayout(preset_group)
         self.preset_combo = QComboBox()
         self.preset_combo.addItems([
-            "⚡ E-Commerce RankBrain Booster (Pogo-Stick + 3 Hops)",
-            "📖 Content & Blog High-Retention (Deep Reading + 2 Hops)",
-            "🛡️ Stealth Brand Impression (Gradual Curve + Cookie Farm)",
-            "⚙️ Custom Tailored Flow",
+            "E-Commerce RankBrain Booster (Pogo-Stick + 3 Internal Hops)",
+            "High-Retention Publishing (Circadian Dayparting + Deep Reading)",
+            "Mobile Search Impression (60% Mobile Safari / Android)",
+            "Stealth Persona Farm (Cookie Pre-Warming + Long Dwell)",
         ])
         preset_v.addWidget(self.preset_combo)
         left_layout.addWidget(preset_group)
 
-        # Execution Parameters
-        config_group = QGroupBox("Execution Parameters")
-        config_v = QVBoxLayout(config_group)
-        config_v.setSpacing(8)
+        # Numerical Limits
+        limits_group = QGroupBox("VOLUME & CONCURRENCY")
+        limits_v = QVBoxLayout(limits_group)
+        limits_v.setSpacing(8)
 
-        # Visits & Concurrency
         h1 = QHBoxLayout()
         v_box = QVBoxLayout()
-        v_box.addWidget(QLabel("Target Visits:"))
+        v_box.addWidget(QLabel("Target Impressions / Visits:"))
         self.visits_spin = QSpinBox()
+        self.visits_spin.setFont(FontSystem.get_mono_font(11))
         self.visits_spin.setRange(1, 1000000)
         self.visits_spin.setValue(250)
         self.visits_spin.setSingleStep(25)
@@ -90,19 +107,21 @@ class CampaignsTab(QWidget):
         h1.addLayout(v_box)
 
         c_box = QVBoxLayout()
-        c_box.addWidget(QLabel("Concurrent Workers:"))
+        c_box.addWidget(QLabel("Concurrent Browser Slots:"))
         self.concurrency_spin = QSpinBox()
-        self.concurrency_spin.setRange(1, 20)
+        self.concurrency_spin.setFont(FontSystem.get_mono_font(11))
+        self.concurrency_spin.setRange(1, 24)
         self.concurrency_spin.setValue(3)
         c_box.addWidget(self.concurrency_spin)
         h1.addLayout(c_box)
-        config_v.addLayout(h1)
+        limits_v.addLayout(h1)
 
         # Dwell Range
         h2 = QHBoxLayout()
         d1 = QVBoxLayout()
         d1.addWidget(QLabel("Min Dwell (sec):"))
         self.min_dwell = QSpinBox()
+        self.min_dwell.setFont(FontSystem.get_mono_font(11))
         self.min_dwell.setRange(10, 600)
         self.min_dwell.setValue(35)
         d1.addWidget(self.min_dwell)
@@ -111,45 +130,76 @@ class CampaignsTab(QWidget):
         d2 = QVBoxLayout()
         d2.addWidget(QLabel("Max Dwell (sec):"))
         self.max_dwell = QSpinBox()
+        self.max_dwell.setFont(FontSystem.get_mono_font(11))
         self.max_dwell.setRange(10, 600)
         self.max_dwell.setValue(180)
         d2.addWidget(self.max_dwell)
         h2.addLayout(d2)
-        config_v.addLayout(h2)
+        limits_v.addLayout(h2)
 
-        left_layout.addWidget(config_group)
+        left_layout.addWidget(limits_group)
 
-        # Innovative Algorithms
-        algo_group = QGroupBox("Advanced Algorithms")
-        algo_v = QVBoxLayout(algo_group)
-        algo_v.setSpacing(6)
+        # Executive Feature Cards (Replaces ugly checkboxes!)
+        feature_header = QLabel("BEHAVIORAL & ALGORITHMIC ENGINES")
+        feature_header.setFont(FontSystem.get_badge_font(8))
+        feature_header.setStyleSheet("color: #64748B; letter-spacing: 1px; margin-top: 4px;")
+        left_layout.addWidget(feature_header)
 
-        self.chk_pogo = QCheckBox("🔥 RankBrain Pogo-Sticking (Bounce competitor -> Land target)")
-        self.chk_pogo.setChecked(True)
-        algo_v.addWidget(self.chk_pogo)
+        self.card_pogo = FeatureToggleCard(
+            icon_symbol="⚡",
+            title="RankBrain Pogo-Sticking",
+            description="Bounces competitor results to trigger search engine satisfaction signal",
+            checked=True,
+            accent_color="#F59E0B",
+        )
+        left_layout.addWidget(self.card_pogo)
 
-        self.chk_journey = QCheckBox("🧭 Multi-Hop Journey (Navigate 2-3 internal pages)")
-        self.chk_journey.setChecked(True)
-        algo_v.addWidget(self.chk_journey)
+        self.card_journey = FeatureToggleCard(
+            icon_symbol="🧭",
+            title="Multi-Hop Organic Journey",
+            description="Explores 2-4 internal pages, eliminating high bounce rates in GA4",
+            checked=True,
+            accent_color="#6366F1",
+        )
+        left_layout.addWidget(self.card_journey)
 
-        self.chk_farm = QCheckBox("🍪 Cookie Farm Pre-warming (Acquire authentic 3rd-party history)")
-        self.chk_farm.setChecked(True)
-        algo_v.addWidget(self.chk_farm)
+        self.card_dayparting = FeatureToggleCard(
+            icon_symbol="⏱",
+            title="Circadian Dayparting Curve",
+            description="Shapes 24h traffic to mirror human morning rushes and sleep lulls",
+            checked=True,
+            accent_color="#10B981",
+        )
+        left_layout.addWidget(self.card_dayparting)
 
-        self.chk_mouse = QCheckBox("🖱️ AI Bezier Curves (Micro-tremors & saccadic overshoot)")
-        self.chk_mouse.setChecked(True)
-        algo_v.addWidget(self.chk_mouse)
+        self.card_mobile = FeatureToggleCard(
+            icon_symbol="📱",
+            title="Mobile Device Matrix (60%)",
+            description="Emulates iPhone & Android touch viewports with real TouchEvent APIs",
+            checked=True,
+            accent_color="#38BDF8",
+        )
+        left_layout.addWidget(self.card_mobile)
 
-        left_layout.addWidget(algo_group)
+        self.card_farm = FeatureToggleCard(
+            icon_symbol="◈",
+            title="Cookie Pre-Warming Farm",
+            description="Acquires genuine 3rd-party history on Wikipedia/BBC before landing",
+            checked=True,
+            accent_color="#A855F7",
+        )
+        left_layout.addWidget(self.card_farm)
 
         # Action Buttons
         btn_row = QHBoxLayout()
         self.btn_start = QPushButton("▶ Launch Campaign")
         self.btn_start.setObjectName("primaryActionBtn")
+        self.btn_start.setFont(FontSystem.get_badge_font(9))
         self.btn_start.clicked.connect(self._start_campaign)
 
-        self.btn_stop = QPushButton("⏹ Stop")
+        self.btn_stop = QPushButton("⏹ Terminate")
         self.btn_stop.setObjectName("dangerBtn")
+        self.btn_stop.setFont(FontSystem.get_badge_font(9))
         self.btn_stop.setEnabled(False)
         self.btn_stop.clicked.connect(self._stop_campaign)
 
@@ -158,13 +208,15 @@ class CampaignsTab(QWidget):
         left_layout.addLayout(btn_row)
         left_layout.addStretch()
 
-        # ── Right Panel: Real-Time Telemetry ──────────────────────
+        left_scroll.setWidget(left_content)
+
+        # ── Right: Real-Time Execution Telemetry ─────────────────
         right = QWidget()
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(10)
 
-        # Progress bar
+        # Progress
         self.progress = QProgressBar()
         self.progress.setValue(0)
         self.progress.setFormat("0 / 0 visits (0%)")
@@ -175,22 +227,24 @@ class CampaignsTab(QWidget):
         metric_h.setSpacing(10)
 
         for attr, title, color in [
-            ("lbl_success", "✅ Completed", "#10B981"),
-            ("lbl_dwell_avg", "⏱️ Avg Retention", "#38BDF8"),
-            ("lbl_pogo_metric", "🔥 Pogo-Sticks", "#F59E0B"),
-            ("lbl_rate", "⚡ Rate/Min", "#818CF8"),
+            ("lbl_success", "COMPLETED", "#10B981"),
+            ("lbl_dwell_avg", "AVG RETENTION", "#38BDF8"),
+            ("lbl_pogo_metric", "POGO BOUNCES", "#F59E0B"),
+            ("lbl_rate", "THROUGHPUT", "#818CF8"),
         ]:
             card = QFrame()
             card.setObjectName("surfaceCard")
-            card.setFixedHeight(65)
+            card.setFixedHeight(68)
             c_l = QVBoxLayout(card)
-            c_l.setContentsMargins(10, 8, 10, 8)
-            c_l.setSpacing(2)
+            c_l.setContentsMargins(12, 8, 12, 8)
+            c_l.setSpacing(1)
 
             v = QLabel("—")
-            v.setStyleSheet(f"color: {color}; font-size: 18px; font-weight: 800;")
+            v.setFont(FontSystem.get_mono_font(18, QFont.Weight.Bold))
+            v.setStyleSheet(f"color: {color};")
             t = QLabel(title)
-            t.setStyleSheet("color: #64748B; font-size: 10px; font-weight: 700;")
+            t.setFont(FontSystem.get_badge_font(8))
+            t.setStyleSheet("color: #64748B; letter-spacing: 1px;")
             c_l.addWidget(v)
             c_l.addWidget(t)
             setattr(self, attr, v)
@@ -199,7 +253,7 @@ class CampaignsTab(QWidget):
         right_layout.addLayout(metric_h)
 
         # Live Execution Log
-        right_layout.addWidget(QLabel("CAMPAIGN EXECUTION LOG"))
+        right_layout.addWidget(QLabel("REAL-TIME CAMPAIGN AUDIT LOG"))
         self.log_table = QTableWidget()
         self.log_table.setColumnCount(5)
         self.log_table.setHorizontalHeaderLabels(["Timestamp", "Target / Keyword", "Flow Used", "Dwell Time", "Status"])
@@ -207,18 +261,16 @@ class CampaignsTab(QWidget):
         self.log_table.setAlternatingRowColors(True)
         right_layout.addWidget(self.log_table)
 
-        splitter.addWidget(left)
+        splitter.addWidget(left_scroll)
         splitter.addWidget(right)
-        splitter.setSizes([380, 820])
+        splitter.setSizes([420, 800])
         main_layout.addWidget(splitter)
 
     def _start_campaign(self):
-        # Fetch keywords from parent
         app = self.window()
         keywords = app.keywords_tab.get_keywords() if hasattr(app, "keywords_tab") else []
 
         if not keywords:
-            # Create a sample keyword if none exists
             keywords = [Keyword(text="best organic traffic platform", target_url="https://example.com")]
 
         proxy_pool = app.proxy_tab.pool if hasattr(app, "proxy_tab") else None
@@ -239,6 +291,7 @@ class CampaignsTab(QWidget):
 
             def on_progress(res: dict):
                 self._total_visits += 1
+                self._completed_sessions.append(res)
                 if res.get("success"):
                     self._success_count += 1
                 if res.get("pogo_used"):
@@ -253,14 +306,13 @@ class CampaignsTab(QWidget):
                 self.progress.setFormat(f"{self._total_visits} / {total_visits} visits ({pct}%)")
                 self._update_metrics()
 
-                # Notify dashboard
                 if hasattr(app, "dashboard_tab"):
                     app.dashboard_tab.add_telemetry_event(
                         worker_id="1",
-                        geo="🇺🇸 US",
+                        geo="US",
                         ip=res.get("proxy_ip", "Direct"),
                         target=res.get("target", "Target"),
-                        action="Pogo-Stick Dwell Completed" if res.get("pogo_used") else "Organic Search Dwell",
+                        action="Pogo-Stick Completed" if res.get("pogo_used") else "Organic Search Dwell",
                     )
                     app.dashboard_tab.update_stats(
                         total_visits=self._total_visits,
@@ -300,19 +352,23 @@ class CampaignsTab(QWidget):
         self.log_table.insertRow(row)
         ts = time.strftime("%H:%M:%S")
 
-        def cell(text, color="#F8FAFC"):
+        def cell(text, color="#F8FAFC", is_mono=False):
             it = QTableWidgetItem(str(text))
             it.setForeground(QColor(color))
             it.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            if is_mono:
+                it.setFont(FontSystem.get_mono_font(10))
+            else:
+                it.setFont(FontSystem.get_badge_font(9))
             return it
 
-        self.log_table.setItem(row, 0, cell(ts, "#64748B"))
+        self.log_table.setItem(row, 0, cell(ts, "#64748B", is_mono=True))
         self.log_table.setItem(row, 1, cell(res.get("keyword") or res.get("target")[:40]))
-        flow = "🔥 Pogo-Stick + Hop" if res.get("pogo_used") else "🎯 SERP Search"
+        flow = "Pogo-Stick + Hop" if res.get("pogo_used") else "SERP Search"
         self.log_table.setItem(row, 2, cell(flow, "#F59E0B" if res.get("pogo_used") else "#818CF8"))
-        self.log_table.setItem(row, 3, cell(f"{res.get('dwell_seconds', 0):.0f}s", "#38BDF8"))
+        self.log_table.setItem(row, 3, cell(f"{res.get('dwell_seconds', 0):.0f}s", "#38BDF8", is_mono=True))
         ok = res.get("success", False)
-        self.log_table.setItem(row, 4, cell("SUCCESS" if ok else "FAILED", "#10B981" if ok else "#EF4444"))
+        self.log_table.setItem(row, 4, cell("VERIFIED" if ok else "FAILED", "#10B981" if ok else "#EF4444"))
 
         if self.log_table.rowCount() > 200:
             self.log_table.removeRow(200)
@@ -325,4 +381,13 @@ class CampaignsTab(QWidget):
         if self._start_time:
             elapsed = time.time() - self._start_time
             rate = self._total_visits / (elapsed / 60) if elapsed > 0 else 0
-            self.lbl_rate.setText(f"{rate:.1f}")
+            self.lbl_rate.setText(f"{rate:.1f}/m")
+
+    def _export_report(self):
+        if not self._completed_sessions:
+            QMessageBox.information(self, "No Data", "Run a campaign first to generate audit records.")
+            return
+        path, _ = QFileDialog.getSaveFileName(self, "Export Audit Report", "orbittraffic_audit.csv", "CSV Files (*.csv)")
+        if path:
+            export_client_csv_report(self._completed_sessions, path)
+            QMessageBox.information(self, "Report Exported", f"Successfully saved to {path}")

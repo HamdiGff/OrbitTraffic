@@ -111,10 +111,14 @@ class KeywordEngine:
                 action_cb("Generating stealth fingerprint & persona...")
 
             from browser.fingerprint import FingerprintProfile
+            from behavior.device_matrix import get_device_options
             fp = fingerprint or FingerprintProfile()
+            dev_profile = get_device_options("auto")
 
-            # Create context
-            context = await self.browser.new_stealth_context(profile=fp, proxy=proxy)
+            # Create context with mobile / desktop emulation
+            context = await self.browser.new_stealth_context(
+                profile=fp, proxy=proxy, device_profile=dev_profile
+            )
 
             # Optional persona warm-up
             if random.random() < 0.4:
@@ -215,7 +219,12 @@ class KeywordEngine:
                 res = await self.execute_keyword_session(
                     kw, progress_cb=on_progress, action_cb=worker_action
                 )
-                await asyncio.sleep(random.uniform(2, 8))
+                from behavior.dayparting import CircadianTrafficShaper
+                intensity = CircadianTrafficShaper.get_current_intensity()
+                base_delay = random.uniform(2, 6)
+                # Night hours delay more naturally, peak hours flow faster
+                pacing_delay = base_delay / max(0.2, intensity)
+                await asyncio.sleep(pacing_delay)
                 return res
 
         tasks = [bounded_session(i, kw) for i, kw in enumerate(visit_plan)]

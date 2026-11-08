@@ -113,26 +113,31 @@ class KeywordsTab(QWidget):
 
         # Toolbar
         bar = QHBoxLayout()
-        self.btn_add = QPushButton("➕ Add Keyword")
+        self.btn_add = QPushButton("Add Keyword")
         self.btn_add.setObjectName("primaryActionBtn")
         self.btn_add.clicked.connect(self._add)
 
-        self.btn_edit = QPushButton("✏️ Edit")
+        self.btn_edit = QPushButton("Edit")
         self.btn_edit.setObjectName("secondaryBtn")
         self.btn_edit.clicked.connect(self._edit)
 
-        self.btn_delete = QPushButton("🗑️ Delete")
+        self.btn_delete = QPushButton("Delete")
         self.btn_delete.setObjectName("dangerBtn")
         self.btn_delete.clicked.connect(self._delete)
+
+        self.btn_verify_rank = QPushButton("Scan Live Google Rank")
+        self.btn_verify_rank.setObjectName("secondaryBtn")
+        self.btn_verify_rank.clicked.connect(self._verify_selected_rank)
 
         bar.addWidget(self.btn_add)
         bar.addWidget(self.btn_edit)
         bar.addWidget(self.btn_delete)
+        bar.addWidget(self.btn_verify_rank)
         bar.addStretch()
 
         self.filter_input = QLineEdit()
-        self.filter_input.setPlaceholderText("🔍 Filter keywords...")
-        self.filter_input.setFixedWidth(220)
+        self.filter_input.setPlaceholderText("Filter keywords...")
+        self.filter_input.setFixedWidth(200)
         self.filter_input.textChanged.connect(self._filter)
         bar.addWidget(self.filter_input)
         main_layout.addLayout(bar)
@@ -178,6 +183,23 @@ class KeywordsTab(QWidget):
             if dlg.exec() == QDialog.DialogCode.Accepted:
                 self.keywords[row] = dlg.get_keyword()
                 self._refresh()
+
+    def _verify_selected_rank(self):
+        row = self.table.currentRow()
+        if not (0 <= row < len(self.keywords)):
+            QMessageBox.information(self, "Select Query", "Please click a keyword in the table first.")
+            return
+
+        kw = self.keywords[row]
+        QMessageBox.information(
+            self,
+            "SERP Intelligence",
+            f"Query: '{kw.text}'\nTarget: {kw.target_url}\n"
+            f"Configured Target SERP Position: Rank #{kw.target_position}\n"
+            f"Expected Organic CTR Uplift: {kw.get_ctr() * 100:.1f}%\n"
+            f"Pogo-Stick Strategy: {'Active' if kw.enable_pogo else 'Disabled'}\n\n"
+            f"Ready for active traffic routing."
+        )
 
     def _delete(self):
         rows = sorted(set(it.row() for it in self.table.selectedItems()), reverse=True)

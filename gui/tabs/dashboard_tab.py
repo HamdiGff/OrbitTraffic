@@ -166,20 +166,22 @@ class DashboardTab(QWidget):
         chart_header.addWidget(live_tag)
         chart_v.addLayout(chart_header)
 
-        # PyQtGraph
+        # PyQtGraph — Polished with smooth curve and no clunky buttons
         pg.setConfigOptions(antialias=True)
         self.plot_widget = pg.PlotWidget()
         self.plot_widget.setBackground("#0A0D14")
-        self.plot_widget.showGrid(x=True, y=True, alpha=0.08)
+        self.plot_widget.plotItem.hideButtons()
+        self.plot_widget.plotItem.setMouseEnabled(x=False, y=False)
+        self.plot_widget.plotItem.showGrid(x=False, y=True, alpha=0.06)
         self.plot_widget.setMenuEnabled(False)
         self.plot_widget.hideAxis("left")
         self.plot_widget.hideAxis("bottom")
 
         self.curve = self.plot_widget.plot(
             list(self._traffic_history),
-            pen=pg.mkPen(color="#818CF8", width=2.5),
+            pen=pg.mkPen(color="#818CF8", width=2.8),
             fillLevel=0,
-            brush=pg.mkBrush(99, 102, 241, 35),
+            brush=pg.mkBrush(99, 102, 241, 30),
         )
         chart_v.addWidget(self.plot_widget)
         grid.addWidget(chart_card, stretch=65)
@@ -271,9 +273,23 @@ class DashboardTab(QWidget):
         self.chart_timer.start(1000)
 
     def _update_chart(self):
-        next_val = max(8, self._traffic_history[-1] + random.randint(-5, 6))
+        import numpy as np
+        next_val = max(12, min(85, self._traffic_history[-1] + random.randint(-4, 5)))
         self._traffic_history.append(next_val)
-        self.curve.setData(list(self._traffic_history))
+
+        # Smooth spline interpolation across data points
+        y_raw = np.array(self._traffic_history, dtype=float)
+        x_raw = np.arange(len(y_raw))
+
+        # Generate smooth curve
+        try:
+            from scipy.interpolate import make_interp_spline
+            spl = make_interp_spline(x_raw, y_raw, k=2)
+            x_smooth = np.linspace(0, len(y_raw) - 1, len(y_raw) * 3)
+            y_smooth = np.maximum(5, spl(x_smooth))
+            self.curve.setData(x_smooth, y_smooth)
+        except Exception:
+            self.curve.setData(list(self._traffic_history))
 
     def add_telemetry_event(self, worker_id: str, geo: str, ip: str, target: str, action: str, score: str = "99/100"):
         row = 0

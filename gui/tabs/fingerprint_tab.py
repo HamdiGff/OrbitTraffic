@@ -41,8 +41,8 @@ class FingerprintTab(QWidget):
         # Header
         top_h = QHBoxLayout()
         title_v = QVBoxLayout()
-        title = QLabel("🧪 Fingerprint & Anti-Detect Diagnostics Lab")
-        title.setStyleSheet("color: #FFFFFF; font-size: 16px; font-weight: 700;")
+        title = QLabel("FINGERPRINT & ANTI-DETECT DIAGNOSTICS LAB")
+        title.setStyleSheet("color: #FFFFFF; font-size: 15px; font-weight: 700; letter-spacing: 0.5px;")
         subtitle = QLabel("Audit browser stealth parameters, hardware emulation, and leak protection.")
         subtitle.setStyleSheet("color: #94A3B8; font-size: 12px;")
         title_v.addWidget(title)
@@ -50,7 +50,7 @@ class FingerprintTab(QWidget):
         top_h.addLayout(title_v)
         top_h.addStretch()
 
-        self.btn_regenerate = QPushButton("🔄 Generate New Identity")
+        self.btn_regenerate = QPushButton("Generate New Virtual Identity")
         self.btn_regenerate.setObjectName("primaryActionBtn")
         self.btn_regenerate.clicked.connect(self._regenerate_profile)
         top_h.addWidget(self.btn_regenerate)
@@ -64,11 +64,11 @@ class FingerprintTab(QWidget):
         shield_l.setSpacing(16)
 
         protections = [
-            ("🛡️ WebRTC Leak", "BLOCKED / NO LEAK", "#10B981"),
-            ("🎨 Canvas Fingerprint", "NOISE INJECTED", "#6366F1"),
-            ("🎮 WebGL Renderer", "SPOOFED & MASKED", "#38BDF8"),
-            ("🔊 AudioContext", "DYNAMIC JITTER", "#F59E0B"),
-            ("⚡ WebDriver Flag", "UNDEFINED / REMOVED", "#10B981"),
+            ("WebRTC Shield", "BLOCKED / NO LEAK", "#10B981"),
+            ("Canvas Noise", "NOISE INJECTED", "#6366F1"),
+            ("WebGL Masking", "SPOOFED & MASKED", "#38BDF8"),
+            ("AudioContext Jitter", "DYNAMIC JITTER", "#F59E0B"),
+            ("Automation Flags", "UNDEFINED / REMOVED", "#10B981"),
         ]
 
         for title, status, col in protections:

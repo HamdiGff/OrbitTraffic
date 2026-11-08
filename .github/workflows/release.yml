@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g. v1.0.1)'
+        description: 'Release version (e.g. v2.4.0)'
         required: true
 
 permissions:
@@ -26,30 +26,24 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
+        shell: pwsh
         run: |
-          pip install -r requirements.txt
-          pip install pyinstaller
+          python -m pip install --upgrade pip
+          pip install PyQt6 pyqtgraph aiohttp aiohttp-socks fake-useragent python-dotenv SQLAlchemy rich cryptography numpy scipy requests httpx Pillow qasync psutil tldextract
+          pip install playwright pyinstaller
+          playwright install chromium
 
-      - name: Install Playwright browsers
-        run: playwright install chromium
-
-      - name: Build EXE with PyInstaller
+      - name: Build Standalone EXE
+        shell: pwsh
         run: |
-          pyinstaller --noconfirm --onefile --windowed `
-            --name "OrbitTraffic" `
-            --icon "assets/icon.ico" `
-            --add-data "config;config" `
-            --add-data "assets;assets" `
-            --hidden-import "PyQt6" `
-            --hidden-import "playwright" `
-            --hidden-import "qasync" `
-            main.py
+          pyinstaller --noconfirm --onedir --windowed --name "OrbitTraffic" --icon "assets/icon.ico" --add-data "config;config" --add-data "assets;assets" main.py
+          Compress-Archive -Path dist/OrbitTraffic/* -DestinationPath dist/OrbitTraffic-Windows-x64.zip
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: OrbitTraffic-Windows
-          path: dist/OrbitTraffic.exe
+          path: dist/OrbitTraffic-Windows-x64.zip
 
   build-linux:
     name: 🐧 Build Linux Binary
@@ -62,7 +56,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install system deps
+      - name: Install Linux GUI Libraries
         run: |
           sudo apt-get update
           sudo apt-get install -y libgl1 libglib2.0-0 libxcb-icccm4 libxcb-image0 \
@@ -71,48 +65,42 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
-          pip install pyinstaller
+          python -m pip install --upgrade pip
+          pip install PyQt6 pyqtgraph aiohttp aiohttp-socks fake-useragent python-dotenv SQLAlchemy rich cryptography numpy scipy requests httpx Pillow qasync psutil tldextract
+          pip install playwright pyinstaller
+          playwright install chromium
 
-      - name: Install Playwright browsers
-        run: playwright install chromium
-
-      - name: Build binary
+      - name: Build Linux Binary
         run: |
-          pyinstaller --noconfirm --onefile \
-            --name "OrbitTraffic" \
-            --add-data "config:config" \
-            --hidden-import "PyQt6" \
-            --hidden-import "playwright" \
-            --hidden-import "qasync" \
-            main.py
+          pyinstaller --noconfirm --onefile --name "OrbitTraffic" --add-data "config:config" --add-data "assets:assets" main.py
+          tar -czvf dist/OrbitTraffic-Linux-x64.tar.gz -C dist OrbitTraffic
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: OrbitTraffic-Linux
-          path: dist/OrbitTraffic
+          path: dist/OrbitTraffic-Linux-x64.tar.gz
 
   release:
-    name: 📦 Create GitHub Release
+    name: 📦 Publish GitHub Release
     needs: [build-windows, build-linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download Windows artifact
+      - name: Download Windows Artifact
         uses: actions/download-artifact@v4
         with:
           name: OrbitTraffic-Windows
           path: dist/
 
-      - name: Download Linux artifact
+      - name: Download Linux Artifact
         uses: actions/download-artifact@v4
         with:
           name: OrbitTraffic-Linux
           path: dist/
 
-      - name: Create Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name || github.event.inputs.version }}
@@ -120,27 +108,18 @@ jobs:
           draft: false
           prerelease: false
           body: |
-            ## 🚀 OrbitTraffic Release
+            ## 🚀 OrbitTraffic Enterprise Release
 
-            ### What's New
-            - Organic traffic generation with AI behavioral simulation
-            - Fingerprint spoofing (Canvas, WebGL, Audio, Navigator)
-            - Async proxy checker with geo-lookup
-            - Keyword-to-traffic flow engine
-            - Dark-themed PyQt6 GUI
+            ### Key Highlights:
+            - **RankBrain Pogo-Sticking Algorithm**: Competitor bounce dissatisfaction to landing satisfaction.
+            - **Multi-Hop Organic Journeys**: Deep multi-page exploration eliminating high bounce rates.
+            - **Persona & Cookie Pre-Warming Farm**: Pre-seeds cookies on authoritative domains.
+            - **Modern Obsidian Design**: Custom vector iconography, subpixel antialiasing, and live PyQtGraph radar.
+            - **Full Anti-Detect Shield**: Canvas, WebGL unmasked vendor, AudioContext, and WebRTC IP leak protection.
 
-            ### Downloads
-            | Platform | File |
-            |----------|------|
-            | Windows  | OrbitTraffic.exe |
-            | Linux    | OrbitTraffic |
-
-            ### Setup
-            ```bash
-            pip install -r requirements.txt
-            playwright install chromium
-            python main.py
-            ```
+            ### Binary Downloads:
+            - **Windows (x64)**: `OrbitTraffic-Windows-x64.zip`
+            - **Linux (x64)**: `OrbitTraffic-Linux-x64.tar.gz`
           files: |
-            dist/OrbitTraffic.exe
-            dist/OrbitTraffic
+            dist/OrbitTraffic-Windows-x64.zip
+            dist/OrbitTraffic-Linux-x64.tar.gz

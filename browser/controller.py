@@ -69,8 +69,9 @@ class BrowserController:
         self,
         profile: Optional[FingerprintProfile] = None,
         proxy=None,
+        device_profile: Optional[dict] = None,
     ):
-        """Create a new browser context with full stealth + fingerprint overrides."""
+        """Create a new browser context with full stealth + fingerprint overrides + mobile emulation."""
         if not self._initialized:
             await self.init()
 
@@ -79,9 +80,18 @@ class BrowserController:
 
         ctx_options = get_context_options(profile)
 
-        # Random user agent
-        ua = random.choice(USER_AGENTS)
-        ctx_options["user_agent"] = ua
+        # Device / Mobile emulation if specified
+        if device_profile:
+            ctx_options["viewport"] = device_profile["viewport"]
+            ctx_options["device_scale_factor"] = device_profile.get("device_scale_factor", 2.0)
+            ctx_options["is_mobile"] = device_profile.get("is_mobile", False)
+            ctx_options["has_touch"] = device_profile.get("has_touch", True)
+            ctx_options["user_agent"] = device_profile["user_agent"]
+            ctx_options["extra_http_headers"]["Sec-Ch-Ua-Mobile"] = "?1" if device_profile.get("is_mobile") else "?0"
+        else:
+            # Random desktop user agent
+            ua = random.choice(USER_AGENTS)
+            ctx_options["user_agent"] = ua
 
         # Proxy configuration
         if proxy:

@@ -50,8 +50,8 @@ class SettingsTab(QWidget):
         layout.setSpacing(14)
 
         header_v = QVBoxLayout()
-        title = QLabel("⚙️ Global Configuration & Architecture Settings")
-        title.setStyleSheet("color: #FFFFFF; font-size: 16px; font-weight: 700;")
+        title = QLabel("GLOBAL CONFIGURATION & ARCHITECTURE")
+        title.setStyleSheet("color: #FFFFFF; font-size: 15px; font-weight: 700; letter-spacing: 0.5px;")
         subtitle = QLabel("Tune concurrent browser resources, stealth thresholds, and auto-update parameters.")
         subtitle.setStyleSheet("color: #94A3B8; font-size: 12px;")
         header_v.addWidget(title)
