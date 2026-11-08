@@ -1,19 +1,19 @@
 """
 OrbitTraffic — Main Entry Point
-Launch the GUI application with async support.
+Launches the ultra-modern enterprise GUI application with FontSystem initialization.
 """
 import sys
 import os
 import asyncio
 
-# Ensure project root is on path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from PyQt6.QtWidgets import QApplication, QSplashScreen
-from PyQt6.QtGui import QPixmap, QFont
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QPixmap, QPainter, QColor
+from PyQt6.QtCore import Qt
 import qasync
 
+from gui.typography import FontSystem
 from gui.app import MainWindow
 from utils.logger import get_logger
 
@@ -23,26 +23,37 @@ logger = get_logger("main")
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("OrbitTraffic")
-    app.setApplicationVersion("1.0.0")
+    app.setApplicationVersion("2.4.0")
     app.setOrganizationName("OrbitTraffic")
 
-    # Apply base font
-    font = QFont("Segoe UI", 10)
-    app.setFont(font)
+    # Set modern clean style
+    app.setStyle("Fusion")
 
-    # Splash screen
-    splash_pix = QPixmap(400, 200)
-    splash_pix.fill(Qt.GlobalColor.transparent)
+    # Initialize typography & font system
+    FontSystem.initialize(app)
+
+    # Sleek obsidian splash screen
+    splash_pix = QPixmap(420, 220)
+    splash_pix.fill(QColor("#080A0F"))
+
+    painter = QPainter(splash_pix)
+    painter.setPen(QColor("#818CF8"))
+    painter.setFont(FontSystem.get_display_font(28))
+    painter.drawText(40, 90, "⬡ ORBITTRAFFIC")
+
+    painter.setPen(QColor("#64748B"))
+    painter.setFont(FontSystem.get_badge_font(9))
+    painter.drawText(42, 120, "ORGANIC TRAFFIC INTELLIGENCE PLATFORM v2.4")
+
+    painter.setPen(QColor("#38BDF8"))
+    painter.setFont(FontSystem.get_mono_font(10))
+    painter.drawText(42, 175, "Initializing stealth contexts & font engine...")
+    painter.end()
+
     splash = QSplashScreen(splash_pix, Qt.WindowType.WindowStaysOnTopHint)
     splash.show()
-    splash.showMessage(
-        "🚀 Starting OrbitTraffic...",
-        Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignCenter,
-        Qt.GlobalColor.white,
-    )
     app.processEvents()
 
-    # Async event loop integration
     loop = qasync.QEventLoop(app)
     asyncio.set_event_loop(loop)
 
@@ -50,7 +61,7 @@ def main():
         window = MainWindow()
         window.show()
         splash.finish(window)
-        logger.info("OrbitTraffic started successfully")
+        logger.info("OrbitTraffic Enterprise v2.4 initialized with high-DPI typography.")
         loop.run_forever()
 
 
